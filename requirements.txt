@@ -1,0 +1,9 @@
+pandas
+numpy
+scipy
+matplotlib
+cartopy
+tqdm
+xarray
+imageio
+imageio-ffmpeg

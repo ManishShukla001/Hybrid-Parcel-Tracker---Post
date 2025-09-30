@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Parcel Tracker - Post-Processing Analysis</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; background-color: #f4f4f4; color: #333; display: flex; }
+        nav { width: 280px; background-color: #34495e; color: #ecf0f1; padding: 20px; height: 100vh; overflow-y: auto; position: fixed; top: 0; left: 0; }
+        nav h2 { color: #ecf0f1; font-size: 1.2em; border-bottom: 1px solid #7f8c8d; padding-bottom: 10px;}
+        nav ul { list-style-type: none; padding: 0; }
+        nav ul li a { color: #bdc3c7; text-decoration: none; display: block; padding: 8px 0; font-size: 0.95em; }
+        nav ul li a:hover { color: #fff; background-color: #4a627a; }
+        nav ul ul { margin-left: 15px; }
+        nav ul ul li a { font-size: 0.9em; padding: 5px 0; }
+        main { margin-left: 320px; /* width of nav + padding */ padding: 20px; width: calc(100% - 320px); }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4 { color: #2c3e50; }
+        h1 { text-align: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 40px; }
+        h3 { margin-top: 30px; color: #34495e; }
+        h4 { margin-top: 20px; color: #7f8c8d; }
+        p, li { font-size: 1em; }
+        code { background-color: #e8e8e8; padding: 2px 5px; border-radius: 4px; font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; white-space: pre-wrap; }
+        .formula { font-style: italic; margin: 10px 0; padding: 10px; background-color: #ecf0f1; border-left: 3px solid #3498db; }
+        .placeholder {
+            border: 2px dashed #bdc3c7;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: #7f8c8d;
+            background-color: #f9f9f9;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        .config-param { font-weight: bold; color: #e67e22; }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>Table of Contents</h2>
+        <ul>
+            <li><a href="#overview">1. Overview</a></li>
+            <li><a href="#code-structure">2. Code Structure</a></li>
+            <li><a href="#config-params">3. Configuration Parameters </a></li>
+            <li><a href="#main-workflow">4. Main Workflow</a>
+                <ul>
+                    <li><a href="#wf-setup">4.1. Setup</a></li>
+                    <li><a href="#wf-stage1">4.2. Stage 1: Identify Relevant IDs</a></li>
+                    <li><a href="#wf-stage2">4.3. Stage 2: Extract Histories</a></li>
+                    <li><a href="#wf-stage3">4.4. Stage 3: Analyze Histories</a></li>
+                    <li><a href="#wf-stage4">4.5. Stage 4: Load Master DataFrame</a></li>
+                    <li><a href="#wf-stage5">4.6. Stage 5: Tracks Analysis</a></li>
+                    <li><a href="#wf-stage6">4.7. Stage 6: Plots & Animations</a></li>
+                </ul>
+            </li>
+            <li><a href="#detailed-analyses">5. Detailed Analyses & Methodologies</a>
+                <ul>
+                    <li><a href="#analysis-data-processing">5.1. Data Processing</a></li>
+                    <li><a href="#analysis-tracks">5.2. Tracks Analysis</a></li>
+                    <li><a href="#analysis-plotting2d">5.3. 2D Plotting</a></li>
+                    <li><a href="#analysis-plotting3d">5.4. 3D Plotting</a></li>
+                    <li><a href="#analysis-statistical">5.5. Statistical Analysis</a></li>
+                    <li><a href="#analysis-animations">5.6. Animation Generation</a></li>
+                    <li><a href="#analysis-moisturetracks">5.7. Moisture Tracks Analysis</a></li>
+                </ul>
+            </li>
+            <li><a href="#outputs">6. Expected Outputs</a></li>
+            <li><a href="#future">7. Future Enhancements</a></li>
+        </ul>
+    </nav>
+    <main>
+        <div class="container">
+            <h1>Hybrid Parcel Tracker - Post-Processing Analysis</h1>
+
+            <section id="overview">
+                <h2>1. Overview</h2>
+                <p>This document describes the code structure and analysis workflow for post-processing results from Hybrid Parcel Tracker (HPT) simulations using <strong>Hybrid Parcel Tracker - Post</strong>. This tool complements <a href="https://github.com/ManishShukla001/Hybrid-Parcel-Tracker---Main" target="_blank">Hybrid Parcel Tracker - Main</a> by analyzing the results from particle tracking simulations. The primary goal is to analyze moisture and temperature changes along particle trajectories, identify significant events (uptake/release of moisture, warming/cooling), and visualize these phenomena through various plots and animations.</p>
+                <p>The workflow is driven by the <code>main_analysis_workflow.py</code> script, which utilizes a central configuration file (<code>config.py</code>) and calls specialized modules for data processing, analysis, plotting, and animation.</p>
+            </section>
+
+            <section id="code-structure">
+                <h2>2. Code Structure</h2>
+                <p>The project is organized into several Python scripts, each responsible for specific tasks:</p>
+                <ul>
+                    <li><strong><code>config.py</code></strong>: The master configuration file. It defines all parameters for the analysis, including file paths, event definitions, plotting extents, time ranges, and processing options.</li>
+                    <li><strong><code>main_analysis_workflow.py</code></strong>: The central orchestrator script. It loads the configuration, manages the overall workflow by calling functions from other modules in sequence.</li>
+                    <li><strong><code>data_processing.py</code></strong>: Handles initial data loading from augmented particle files (which can be in **CSV or NetCDF format**), identification of relevant particles, extraction of their full histories, calculation of moisture/temperature changes (&Delta;q, &Delta;T for 1-hour and 6-hour windows), event classification (Uptake, Release, Warming, Cooling), calculation of mean pressure over change windows, and 1-hour pressure change (dp/dt). It culminates in creating a master DataFrame (<code>master_df</code>).</li>
+                    <li><strong><code>plotting_2d.py</code></strong>: Generates various 2D static plots (aggregate maps, composite trajectory density, individual trajectories) and individual frames for 2D animations.</li>
+                    <li><strong><code>plotting_3d.py</code></strong>: Generates 3D static trajectory plots and individual frames for 3D animations, visualizing particle paths in a 3D space (longitude, latitude, pressure).</li>
+                    <li><strong><code>statistical_analysis.py</code></strong>: Performs a wide range of statistical analyses and generates corresponding plots. This includes vertical profiles of various quantities (overall, in-target, conditional), histograms of event magnitudes, analysis of time spent in target, release amounts in target, geographical distribution of last events, and time evolution plots.</li>
+                    <li><strong><code>animations.py</code></strong>: Compiles the 2D and 3D frames generated by the plotting modules into animated GIFs and/or MP4 videos using the <code>imageio</code> library. Also handles generation of static colorbars for animations.</li>
+                    <li><strong><code>tracks_analysis.py</code></strong>: Performs specialized trajectory analysis focusing on particles reaching a specific target region at defined times. It plots their initial positions, full trajectories, and changes in q/T along these paths.</li>
+                    <li><strong><code>MoistureTracks.py</code></strong>: Analyzes and plots trajectories of particles that release moisture over the target area. Generates cumulative and hourly trajectory plots, aggregate moisture contribution maps, time evolution plots, and gridded moisture release data.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/Analysis_Workflow.png" alt="Overall Code Structure and Data Flow Diagram" style="width:100%; height:auto; max-width:1200px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 1: Overall Code Structure and Data Flow Diagram - Post-Processing Analysis Workflow.
+                </div>
+            </section>
+            <section id="config-params">
+                <h2>3. Configuration Parameters (<code>config.py</code>)</h2>
+                <p>The <code>config.py</code> file is central to the entire workflow, allowing customization of the analysis without modifying core scripts. Below are the key configurable parameters, grouped by their purpose:</p>
+
+                <h4>3.1. Core Simulation & Data Paths</h4>
+                <ul>
+                    <li><span class="config-param">BASE_OUTPUT_DIR</span>: Main directory where all analysis results will be saved.</li>
+                    <li><span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span>: Path to the directory containing input particle data files. These files are expected to be in **CSV or NetCDF (.nc)** format and include at least: id, time_step (or means to derive it), latitude, longitude, pressure, specific_humidity, temperature.</li>
+                    <li><span class="config-param">ORIGINAL_PARTICLE_SIM_DIR</span>: Optional path to raw particle simulation output, potentially used by specific legacy analysis components.</li>
+                </ul>
+
+                <h4>3.2. Event Definition & Initial Particle Selection</h4>
+                <ul>
+                    <li><span class="config-param">SIMULATION_START_DATETIME</span>: Timestamp (e.g., 'YYYY-MM-DD HH:MM:SS') corresponding to the simulation's time_step = 0.</li>
+                    <li><span class="config-param">TARGET_LAT_CENTER</span>: Latitude of the center of the target region.</li>
+                    <li><span class="config-param">TARGET_LON_CENTER</span>: Longitude of the center of the target region.</li>
+                    <li><span class="config-param">TARGET_BOX_HALF_WIDTH_DEG</span>: Half-width (in degrees) of the square target box. A value of 0.1 means a 0.2x0.2 degree box.</li>
+                    <li><span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>: A range or list of hours (from simulation start) during which particles arriving in the target box are considered "relevant" for the main analysis.</li>
+                </ul>
+
+                <h4>3.3. Detailed Analysis Configuration</h4>
+                <ul>
+                    <li><span class="config-param">ANALYSIS_START_HOUR</span>: Hour (0-indexed from simulation start) to begin detailed history analysis
+                        for each selected particle. For example, if particles are selected based on
+                        arrival at H48, their history will be traced back to this ANALYSIS_START_HOUR.</li>
+                    <li><span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>: Range or list of hours defining the primary period for analyzing specific phenomena (e.g., moisture release *within* the target *during* these hours).
+                        This can be the same as RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS or a sub-period.</li>
+                    <li><span class="config-param">TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS</span>: Number of hours to continue tracking particle histories *after* the latest arrival step defined in <span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>.
+                        This allows looking at what happens to particles *after* passing the target.</li>
+                    <li><span class="config-param">DQ_THRESHOLD_KG_PER_KG</span>: Threshold for significant specific humidity change (in kg/kg) over <span class="config-param">CHANGE_WINDOW_HOURS</span> to define moisture uptake/release events.</li>
+                    <li><span class="config-param">DT_THRESHOLD_KELVIN</span>: Threshold for significant temperature change (in Kelvin) over <span class="config-param">CHANGE_WINDOW_HOURS</span> to define warming/cooling events.</li>
+                    <li><span class="config-param">CHANGE_WINDOW_HOURS</span>: Time window (in hours) used for calculating &Delta;q and &Delta;T for event definition (typically 6 hours). 1-hour changes are also calculated separately.</li>
+                </ul>
+
+                <h4>3.4. Plotting & Animation Configuration</h4>
+                <ul>
+                    <li><span class="config-param">FIXED_PLOT_EXTENT_2D</span>: Optional tuple <code>(lon_min, lon_max, lat_min, lat_max)</code> for 2D plots. If <code>None</code>, extent is dynamic.</li>
+                    <li><span class="config-param">FIXED_PLOT_LONLAT_EXTENT_3D</span>: Optional tuple <code>(lon_min, lon_max, lat_min, lat_max)</code> for the longitude/latitude extent of 3D plots. If <code>None</code>, extent is dynamic.</li>
+                    <li><span class="config-param">FIXED_PLOT_PRESSURE_EXTENT_3D</span>: Optional tuple <code>(p_min_hPa, p_max_hPa)</code> for the pressure extent of 3D plots. If <code>None</code>, extent is dynamic.</li>
+                    <li><span class="config-param">DEFAULT_PLOT_VIEW_ANGLE_3D</span>: Tuple <code>(elevation, azimuth)</code> for the default camera view in 3D plots.</li>
+                    <li><span class="config-param">DEFAULT_PLOT_BUFFER_DEG</span>: Buffer (in degrees) added to dynamic plot extents if fixed extents are not used.</li>
+                    <li><span class="config-param">ANIMATION_FRAME_START_HOUR</span>: Starting hour for generating animation frames.</li>
+                    <li><span class="config-param">ANIMATION_FRAME_END_HOUR</span>: Ending hour (inclusive) for generating animation frames.</li>
+                    <li><span class="config-param">ANIMATION_FPS</span>: Frames per second for output animations.</li>
+                    <li><span class="config-param">ANIMATION_DPI</span>: Dots per inch for saved animation frames.</li>
+                    <li><span class="config-param">MAX_INDIVIDUAL_TRAJECTORIES_TO_PLOT</span>: Maximum number of individual particle trajectories to plot for detailed static plots. If <code>None</code>, attempts to plot all relevant ones.</li>
+                    <li><span class="config-param">TIME_EVOLUTION_FOCUS_STEPS</span>: List of specific hours for which to generate focused time-evolution plots (particles arriving at these hours).</li>
+                    <li><span class="config-param">AGGREGATE_MAP_GRID_RESOLUTION_DEG</span>: Grid resolution (in degrees) for 2D aggregate heatmap plots.</li>
+                    <li><span class="config-param">CMAP_SPECIFIC_HUMIDITY</span>, <span class="config-param">CMAP_TEMPERATURE</span>, etc.: Names of Matplotlib colormaps used for various plots.</li>
+                    <li><span class="config-param">TARGET_AREA_PLOT_COLOR</span>: Color used to display the target area in plots.</li>
+                    <li><span class="config-param">AGGREGATE_COLOR_PERCENTILES</span>: Tuple <code>(min_percentile, max_percentile)</code> for robust color scaling in aggregate maps (e.g., sum of dq/dt).</li>
+                    <li><span class="config-param">PRESSURE_BINS_CATEGORICAL</span>: NumPy array defining pressure bins (hPa) for categorical coloring (e.g., in Tracks analysis).</li>
+                    <li><span class="config-param">VERTICAL_PROFILE_PRESSURE_BINS</span>: NumPy array defining pressure bins (hPa) for finer vertical profile analyses.</li>
+                    <li><span class="config-param">DATETIME_PLOT_FORMAT</span>: String format for displaying datetimes in plot titles and labels (e.g., "%Y-%m-%d %H:%M").</li>
+                </ul>
+
+                <h4>3.5. Tracks Analysis Specific Settings</h4>
+                <ul>
+                    <li><span class="config-param">TRACKS_PARTICLE_SOURCE_FOLDER</span>: Typically same as <span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span> for the `run_tracks_analysis_from_master` workflow.</li>
+                    <li><span class="config-param">TRACKS_TARGET_STEPS</span>: List or range of hours for which the tracks analysis specifically identifies particles arriving in the target. Often same as <span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>.</li>
+                    <li><span class="config-param">TRACKS_PLOT_EXTENT_2D</span>: Optional fixed 2D plotting extent <code>(lon_min, lon_max, lat_min, lat_max)</code> specifically for plots generated by `tracks_analysis.py`. If <code>None</code>, extent is dynamic.</li>
+                    <li>(Other parameters like <span class="config-param">TARGET_LAT_CENTER</span>, <span class="config-param">ANALYSIS_START_HOUR</span>, <span class="config-param">TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS</span> are also used by Tracks Analysis).</li>
+                </ul>
+
+                <h4>3.6. Parallel Processing</h4>
+                <ul>
+                    <li><span class="config-param">NUM_WORKERS</span>: Number of worker processes to use for parallelizable tasks. Defaults to <code>cpu_count() - 1</code>.</li>
+                </ul>
+
+                <h4>3.7. Output Subdirectory Definitions</h4>
+                <p>These parameters define the names of subdirectories within <span class="config-param">BASE_OUTPUT_DIR</span> where different types of outputs are stored. Examples:</p>
+                <ul>
+                    <li><span class="config-param">DATA_PROCESSING_OUTPUT_DIR</span> (derived, e.g., <code>BASE_OUTPUT_DIR / "1_processed_data"</code>)</li>
+                    <li><span class="config-param">RELEVANT_IDS_FILE</span> (path to file)</li>
+                    <li><span class="config-param">FILTERED_HOURLY_DATA_DIR</span> (path to directory)</li>
+                    <li><span class="config-param">ANALYZED_PARTICLE_HISTORIES_DIR</span> (path to directory)</li>
+                    <li><span class="config-param">PLOTS_OUTPUT_DIR</span> (derived, e.g., <code>BASE_OUTPUT_DIR / "2_plots_and_animations"</code>)</li>
+                    <li><span class="config-param">TRACKS_OUTPUT_DIR</span> (path to directory)</li>
+                    <li><span class="config-param">INDIVIDUAL_TRAJ_PLOTS_SUBDIR</span> (name of subdirectory)</li>
+                    <li><span class="config-param">AGGREGATE_MAPS_MOISTURE_SUBDIR</span> (name of subdirectory)</li>
+                    <li>... and other subdirectory names for animations, statistical plots, etc.</li>
+                </ul>
+                 <p><em>Note: Some parameters like <code>MAX_HISTORY_TRACKING_HOUR</code> are derived by the main script based on other configurations and should not be set manually.</em></p>
+            </section>
+
+
+
+            <section id="main-workflow">
+                <h2>4. Main Workflow (<code>main_analysis_workflow.py</code>)</h2>
+                <p>The main script orchestrates the entire post-processing pipeline. The typical flow is as follows:</p>
+                <div class="placeholder">
+                    <img src="diagram/Main_Workflow_Flowchart.png" alt="Flowchart of main_analysis_workflow.py" style="width:100%; height:auto; max-width:1000px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 2: Flowchart of <code>main_analysis_workflow.py</code> - Main Analysis Workflow Stages.
+                </div>
+
+                <h3 id="wf-setup">4.1. Setup</h3>
+                <ul>
+                    <li>Initializes logging using <code>setup_logging.py</code> (not explicitly shown in `main_analysis_workflow.py` but good practice).</li>
+                    <li>Calls <code>create_output_directories()</code> to establish the necessary folder structure based on <code>config.py</code> settings.</li>
+                    <li>Calculates derived configuration values, such as <code>MAX_HISTORY_TRACKING_HOUR</code>.</li>
+                </ul>
+
+                <h3 id="wf-stage1">4.2. Stage 1: Identify Relevant Particle IDs</h3>
+                <ul>
+                    <li>Calls <code>data_processing.identify_target_particles_from_augmented_data()</code>.</li>
+                    <li><strong>Purpose</strong>: To find unique particle IDs that pass through the defined <span class="config-param">TARGET_LAT_CENTER</span>, <span class="config-param">TARGET_LON_CENTER</span>, <span class="config-param">TARGET_BOX_HALF_WIDTH_DEG</span> during the hours specified in <span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>.
+                    <li><strong>Input</strong>: Augmented particle data CSVs from <span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span>.</li>
+                    <li><strong>Output</strong>: A list of relevant particle IDs, saved to <span class="config-param">RELEVANT_IDS_FILE</span>.</li>
+                </ul>
+
+                <h3 id="wf-stage2">4.3. Stage 2: Extract Full Histories for Relevant Particles</h3>
+                <ul>
+                    <li>Calls <code>data_processing.extract_particle_histories()</code>.</li>
+                    <li><strong>Purpose</strong>: To gather the complete time-series data for the identified relevant particles.</li>
+                    <li><strong>Input</strong>: The list of relevant IDs, augmented particle data CSVs.</li>
+                    <li><strong>Parameters</strong>: Histories are extracted from <span class="config-param">ANALYSIS_START_HOUR</span> up to the calculated <code>MAX_HISTORY_TRACKING_HOUR</code>.</li>
+                    <li><strong>Output</strong>: Filtered hourly CSV files (containing only relevant particles) in <span class="config-param">FILTERED_HOURLY_DATA_DIR</span>.</li>
+                </ul>
+
+                <h3 id="wf-stage3">4.4. Stage 3: Analyze Histories for Moisture & Temperature Changes</h3>
+                <ul>
+                    <li>Calls <code>data_processing.analyze_all_particle_histories_detailed()</code>.</li>
+                    <li><strong>Purpose</strong>: To calculate changes in specific humidity (&Delta;q) and temperature (&Delta;T), identify atmospheric events, and compute related pressure metrics for each relevant particle.</li>
+                    <li><strong>Input</strong>: Filtered hourly data from Stage 2.</li>
+                    <li><strong>Parameters</strong>: Uses <span class="config-param">DQ_THRESHOLD_KG_PER_KG</span>, <span class="config-param">DT_THRESHOLD_KELVIN</span>, and <span class="config-param">CHANGE_WINDOW_HOURS</span> (for 6-hour changes) and a fixed 1-hour window for 1-hour changes.</li>
+                    <li><strong>Output</strong>: CSV files for each analyzed particle (e.g., <code>particle_{id}_analyzed_history.csv</code>) in <span class="config-param">ANALYZED_PARTICLE_HISTORIES_DIR</span>, containing original data plus new columns for &Delta;q, &Delta;T (1hr & 6hr), event types, mean pressures, and dp/dt.</li>
+                </ul>
+
+                <h3 id="wf-stage4">4.5. Stage 4: Load Master DataFrame for Plotting & Further Analysis</h3>
+                <ul>
+                    <li>Calls <code>data_processing.load_master_analyzed_df()</code>.</li>
+                    <li><strong>Purpose</strong>: To consolidate all individual analyzed particle histories into a single, comprehensive Pandas DataFrame.</li>
+                    <li><strong>Input</strong>: Analyzed particle history CSVs from Stage 3.</li>
+                    <li><strong>Output</strong>: The <code>master_df</code> DataFrame, which is then used by subsequent analysis and plotting stages.</li>
+                </ul>
+
+                <h3 id="wf-stage5">4.6. Stage 5: Tracks Analysis</h3>
+                <ul>
+                    <li>Calls <code>tracks_analysis.run_tracks_analysis_from_master()</code>.</li>
+                    <li><strong>Purpose</strong>: To perform a specialized analysis focusing on particles arriving at the target region during specific steps (<span class="config-param">TRACKS_TARGET_STEPS</span>).</li>
+                    <li><strong>Input</strong>: The <code>master_df</code> and configuration object.</li>
+                    <li><strong>Output</strong>: CSV files with initial/final states of target-reaching particles, and various plots (initial positions, trajectory maps, q/T change along tracks) saved in <span class="config-param">TRACKS_OUTPUT_DIR</span>.</li>
+                </ul>
+
+                <h3 id="wf-stage6">4.7. Stage 6: Generate Plots and Animations</h3>
+                <p>This stage involves calls to multiple functions from different modules, using the <code>master_df</code> and <code>config_obj</code>.</p>
+                <ul>
+                    <li><strong>2D Aggregate Maps</strong> (<code>plotting_2d.plot_aggregate_map_generic</code>):
+                        <ul>
+                            <li>Net change maps for moisture (dq/dt) and temperature (dT/dt).</li>
+                            <li>Frequency maps for Uptake, Release, Warming, and Cooling events.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Composite Trajectory Density Plot</strong> (<code>plotting_2d.plot_composite_trajectory_density</code>): Visualizes all relevant particle trajectories with event locations.</li>
+                    <li><strong>Statistical Distributions & Profiles</strong> (various functions in <code>statistical_analysis.py</code>):
+                        <ul>
+                            <li>Vertical profiles of average dq/dt and dT/dt.</li>
+                            <li>Histograms of event magnitudes.</li>
+                            <li>Geographical distribution of last significant events before target arrival.</li>
+                            <li>Analysis of time spent in target and release amounts within the target.</li>
+                            <li>Vertical profiles of q, T, dq/dt, dT/dt specifically within the target region.</li>
+                            <li>Vertical profiles of 1-hr and 6-hr changes vs. mean pressure over the change window.</li>
+                            <li>Conditional vertical profiles in the target (e.g., dq/dt vs. pressure, conditioned by ascent/descent).</li>
+                            <li>Profiles of net q/T change during target transit.</li>
+                            <li>Scatter plots of current q/T vs. lagged q/T within the target.</li>
+                        </ul>
+                    </li>
+                     <li><strong>Time Evolution Plots</strong> (<code>statistical_analysis.plot_time_evolution_multi_step</code>, <code>statistical_analysis.plot_time_evolution_full_event</code>):
+                        <ul>
+                            <li>Mean q/T and event counts over time, aligned by specific arrival hours or first arrival in target.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Individual Trajectory Plots</strong>:
+                        <ul>
+                            <li><code>plotting_2d.plot_selected_individual_2d_trajectories</code>: 2D plots for selected particles.</li>
+                            <li><code>plotting_3d.plot_selected_individual_3d_trajectories</code>: 3D plots for selected particles.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Animations</strong> (<code>animations.create_all_animations</code>):
+                        <ul>
+                            <li>Generates 2D and 3D hourly snapshot animations (GIF, MP4) and static colorbars.</li>
+                        </ul>
+                    </li>
+                </ul>
+                <h3 id="wf-stage7">4.8. Stage 7: Moisture Tracks Analysis</h3>
+                <ul>
+                    <li>Calls <code>MoistureTracks.run_moisture_tracks_analysis(master_df, config_obj)</code>.</li>
+                    <li><strong>Purpose</strong>: To identify particles releasing moisture in the target area, analyze their trajectories and spatial contributions.</li>
+                    <li><strong>Output</strong>: Trajectory plots (hourly, cumulative), moisture contribution maps, time evolution plots, Excel files with detailed data, all saved in <code>MOISTURE_TRACKS_OUTPUT_DIR</code>.</li>
+                </ul>
+            </section>
+
+            <section id="detailed-analyses">
+                <h2>5. Detailed Analyses & Methodologies</h2>
+
+                <h3 id="analysis-data-processing">5.1. Data Processing (<code>data_processing.py</code>)</h3>
+                <p>This module is responsible for preparing the data for all subsequent analyses.</p>
+                <h4>5.1.1. Identifying Target Particles (<code>identify_target_particles_from_augmented_data</code>)</h4>
+                <p>This function reads particle data files (expected to be hourly CSVs or NetCDFs) from the <span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span>.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: Selects particles that enter a defined target region during specified time steps.</li>
+                    <li><strong>Method</strong>: Iterates through hourly augmented data files for each hour in <span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>. For each file, it checks which particles fall within the geographical box defined by <span class="config-param">TARGET_LAT_CENTER</span>, <span class="config-param">TARGET_LON_CENTER</span>, and <span class="config-param">TARGET_BOX_HALF_WIDTH_DEG</span>. Unique IDs are collected.</li>
+                    <li><strong>Output</strong>: A CSV file (<span class="config-param">RELEVANT_IDS_FILE</span>) listing unique particle IDs.</li>
+                </ul>
+
+                <h4>5.1.2. Extracting Particle Histories (<code>extract_particle_histories</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Gathers the full trajectory data for the previously identified relevant particles over a specified analysis period. This involves reading the original augmented data files (CSVs or NetCDFs) again.</li>
+                    <li><strong>Input</strong>: The list of relevant IDs, augmented particle data files from <span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span>.</li>
+                    <li><strong>Method</strong>: For each hour from <span class="config-param">ANALYSIS_START_HOUR</span> to <code>MAX_HISTORY_TRACKING_HOUR</code>, it reads the corresponding augmented data file, filters it for the relevant particle IDs, and saves the filtered data to a new hourly file in <span class="config-param">FILTERED_HOURLY_DATA_DIR</span>. The <code>time_step</code> column is ensured.</li>
+                </ul>
+
+                <h4>5.1.3. Detailed History Analysis (<code>analyze_all_particle_histories_detailed</code> via <code>_analyze_single_particle_history_worker</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Calculates changes in moisture and temperature, classifies events, and computes pressure-related metrics for each particle's history.</li>
+                    <li><strong>Methodology (per particle)</strong>:
+                        <ol>
+                            <li>Concatenates all hourly filtered data for the particle.</li>
+                            <li><strong>Moisture/Temperature Change (&Delta;q, &Delta;T)</strong>:
+                                <p>Calculated for two windows:
+                                    <ul>
+                                        <li>Over <span class="config-param">CHANGE_WINDOW_HOURS</span> (typically 6 hours):
+                                            <div class="formula">
+                                                &Delta;q<sub>6hr</sub>(t) = q(t) - q(t - CHANGE_WINDOW_HOURS)<br>
+                                                &Delta;T<sub>6hr</sub>(t) = T(t) - T(t - CHANGE_WINDOW_HOURS)
+                                            </div>
+                                            These are stored as <code>dq_dt_6hr</code> and <code>dT_dt_6hr</code>.
+                                        </li>
+                                        <li>Over 1 hour:
+                                            <div class="formula">
+                                                &Delta;q<sub>1hr</sub>(t) = q(t) - q(t - 1 hour)<br>
+                                                &Delta;T<sub>1hr</sub>(t) = T(t) - T(t - 1 hour)
+                                            </div>
+                                            These are stored as <code>dq_dt_1hr</code> and <code>dT_dt_1hr</code>.
+                                        </li>
+                                    </ul>
+                                </p>
+                            </li>
+                            <li><strong>Event Identification</strong> (based on 6-hour changes):
+                                <ul>
+                                    <li>Moisture Uptake: if &Delta;q<sub>6hr</sub> &ge; <span class="config-param">DQ_THRESHOLD_KG_PER_KG</span> (column <code>moisture_event_type</code>)</li>
+                                    <li>Moisture Release: if &Delta;q<sub>6hr</sub> &le; -<span class="config-param">DQ_THRESHOLD_KG_PER_KG</span></li>
+                                    <li>Warming: if &Delta;T<sub>6hr</sub> &ge; <span class="config-param">DT_THRESHOLD_KELVIN</span> (column <code>temp_event_type</code>)</li>
+                                    <li>Cooling: if &Delta;T<sub>6hr</sub> &le; -<span class="config-param">DT_THRESHOLD_KELVIN</span></li>
+                                    <li>Neutral: Otherwise.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Pressure Metrics</strong>:
+                                <ul>
+                                    <li>Mean Pressure over Window:
+                                        <div class="formula">
+                                            P<sub>mean,6hr</sub>(t) = (P(t) + P(t - CHANGE_WINDOW_HOURS)) / 2 (column <code>mean_pressure_6hr_window</code>)<br>
+                                            P<sub>mean,1hr</sub>(t) = (P(t) + P(t - 1 hour)) / 2 (column <code>mean_pressure_1hr_window</code>)
+                                        </div>
+                                    </li>
+                                    <li>1-hour Pressure Change (Vertical Motion Proxy):
+                                        <div class="formula">
+                                            &Delta;P<sub>1hr</sub>(t) = P(t) - P(t - 1 hour) (column <code>dp_dt_1hr</code>; negative implies ascent)
+                                        </div>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </li>
+                    <li><strong>Output</strong>: Individual CSV files per particle in <span class="config-param">ANALYZED_PARTICLE_HISTORIES_DIR</span>, containing all original and newly computed columns.</li>
+                </ul>
+                 <div class="placeholder">
+                    <img src="diagram/History_Analysis.png" alt="Flowchart of Detailed History Analysis per particle" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 3: Flowchart of Detailed History Analysis per particle (&Delta;q, &Delta;T calculation) - Single Particle History Analysis Workflow.
+                </div>
+
+                <h4>5.1.4. Loading Master DataFrame (<code>load_master_analyzed_df</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Consolidates all individual analyzed particle data into a single DataFrame.</li>
+                    <li><strong>Method</strong>: Reads all <code>particle_{id}_analyzed_history.csv</code> files from <span class="config-param">ANALYZED_PARTICLE_HISTORIES_DIR</span> (optionally filtered by <code>relevant_ids_list</code>) and concatenates them. Ensures correct data types and sorts by particle ID and time step.</li>
+                    <li><strong>Output</strong>: The <code>master_df</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <h4>Table 1: Example structure of the <code>master_df</code> (showing key original and derived columns)</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Variable Name</th>
+                                <th>Sample Value</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>particle_id</code></td>
+                                <td>12345</td>
+                                <td>Unique identifier for each particle. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>time_step</code></td>
+                                <td>48</td>
+                                <td>Simulation hour (0-indexed). Loaded from input data, ensured during history extraction.</td>
+                            </tr>
+                            <tr>
+                                <td><code>latitude</code></td>
+                                <td>-35.12345</td>
+                                <td>Geographical latitude in degrees. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>longitude</code></td>
+                                <td>145.67890</td>
+                                <td>Geographical longitude in degrees. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>pressure</code></td>
+                                <td>850.5</td>
+                                <td>Atmospheric pressure at the particle's location in hPa. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>specific_humidity</code></td>
+                                <td>0.00856</td>
+                                <td>Specific humidity (mass of water vapor per unit mass of moist air) in kg/kg. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>temperature</code></td>
+                                <td>285.15</td>
+                                <td>Temperature in Kelvin. Loaded from input data.</td>
+                            </tr>
+                            <tr>
+                                <td><code>q_lagged_6hr</code></td>
+                                <td>0.00801</td>
+                                <td>Specific humidity from <code>CHANGE_WINDOW_HOURS</code> (e.g., 6) hours prior. Calculated by shifting the <code>specific_humidity</code> column. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>dq_dt_6hr</code></td>
+                                <td>0.00055</td>
+                                <td>Change in specific humidity over the last <code>CHANGE_WINDOW_HOURS</code> (e.g., 6) hours (kg/kg). Calculated as <code>specific_humidity - q_lagged_6hr</code>. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>moisture_event_type</code></td>
+                                <td>Uptake</td>
+                                <td>Classification of the moisture change over the last 6 hours ('Uptake', 'Release', 'Neutral', or 'Unknown'). Determined by comparing <code>dq_dt_6hr</code> against <code>DQ_THRESHOLD_KG_PER_KG</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><code>T_lagged_6hr</code></td>
+                                <td>286.50</td>
+                                <td>Temperature from <code>CHANGE_WINDOW_HOURS</code> (e.g., 6) hours prior (K). Calculated by shifting the <code>temperature</code> column. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>dT_dt_6hr</code></td>
+                                <td>-1.35</td>
+                                <td>Change in temperature over the last <code>CHANGE_WINDOW_HOURS</code> (e.g., 6) hours (K). Calculated as <code>temperature - T_lagged_6hr</code>. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>temp_event_type</code></td>
+                                <td>Cooling</td>
+                                <td>Classification of the temperature change over the last 6 hours ('Warming', 'Cooling', 'Neutral', or 'Unknown'). Determined by comparing <code>dT_dt_6hr</code> against <code>DT_THRESHOLD_KELVIN</code>.</td>
+                            </tr>
+                             <tr>
+                                <td><code>q_lagged_1hr</code></td>
+                                <td>0.00850</td>
+                                <td>Specific humidity from 1 hour prior (kg/kg). Calculated by shifting the <code>specific_humidity</code> column by 1. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>dq_dt_1hr</code></td>
+                                <td>0.00006</td>
+                                <td>Change in specific humidity over the last 1 hour (kg/kg). Calculated as <code>specific_humidity - q_lagged_1hr</code>. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>T_lagged_1hr</code></td>
+                                <td>285.30</td>
+                                <td>Temperature from 1 hour prior (K). Calculated by shifting the <code>temperature</code> column by 1. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>dT_dt_1hr</code></td>
+                                <td>-0.15</td>
+                                <td>Change in temperature over the last 1 hour (K). Calculated as <code>temperature - T_lagged_1hr</code>. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>p_lagged_6hr</code></td>
+                                <td>900.2</td>
+                                <td>Pressure from <code>CHANGE_WINDOW_HOURS</code> (e.g., 6) hours prior (hPa). Calculated by shifting the <code>pressure</code> column. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>mean_pressure_6hr_window</code></td>
+                                <td>875.35</td>
+                                <td>Average pressure over the current point and the point <code>CHANGE_WINDOW_HOURS</code> prior (hPa). Calculated as <code>(pressure + p_lagged_6hr) / 2</code>. <code>NaN</code> for the first <code>CHANGE_WINDOW_HOURS</code> steps.</td>
+                            </tr>
+                            <tr>
+                                <td><code>p_lagged_1hr</code></td>
+                                <td>855.0</td>
+                                <td>Pressure from 1 hour prior (hPa). Calculated by shifting the <code>pressure</code> column by 1. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>mean_pressure_1hr_window</code></td>
+                                <td>852.75</td>
+                                <td>Average pressure over the current point and the point 1 hour prior (hPa). Calculated as <code>(pressure + p_lagged_1hr) / 2</code>. <code>NaN</code> for the first step.</td>
+                            </tr>
+                            <tr>
+                                <td><code>dp_dt_1hr</code></td>
+                                <td>-4.5</td>
+                                <td>Change in pressure over the last 1 hour (hPa). Calculated as <code>pressure - p_lagged_1hr</code>. A negative value indicates ascent, positive indicates descent. <code>NaN</code> for the first step.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="analysis-tracks">5.2. Tracks Analysis (<code>tracks_analysis.py</code>)</h3>
+                <p>This module performs analysis focused on particles that interact with a predefined target area during specific time steps, similar to the "Tracks21" methodology. It uses the <code>master_df</code> as its primary input.</p>
+                <h4>5.2.1. Main Function: <code>run_tracks_analysis_from_master</code> (calls <code>process_track_step_from_master</code>)</h4>
+                <p>This function orchestrates the tracks analysis for each target step specified in <span class="config-param">TRACKS_TARGET_STEPS</span>.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: For each hour in <span class="config-param">TRACKS_TARGET_STEPS</span>, identify particles within the target, trace their histories, and generate specific plots and data.</li>
+                    <li><strong>Key Configuration Parameters</strong>:
+                        <ul>
+                            <li><span class="config-param">TRACKS_TARGET_STEPS</span>: Hours for target arrival analysis.</li>
+                            <li><span class="config-param">TARGET_LAT_CENTER</span>, <span class="config-param">TARGET_LON_CENTER</span>, <span class="config-param">TARGET_BOX_HALF_WIDTH_DEG</span>: Target area definition.</li>
+                            <li><span class="config-param">ANALYSIS_START_HOUR</span>: Reference hour for initial positions and start of trajectory tracing.</li>
+                            <li><span class="config-param">TRACKS_PLOT_EXTENT_2D</span>: Optional fixed extent for 2D track plots.</li>
+                            <li><span class="config-param">PRESSURE_BINS_CATEGORICAL</span>, <span class="config-param">CMAP_PRESSURE</span>: For pressure-colored plots.</li>
+                            <li><span class="config-param">TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS</span>: Duration to track q/T changes *after* target arrival.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Methodology & Outputs (per target step hour, via <code>process_track_step_from_master</code>)</strong>:
+                        <ol start="1">
+                            <li><strong>Particle Identification</strong>: Selects particles from <code>master_df</code> that are within the target box at the current <code>target_step_hour</code>.</li>
+                            <li><strong>Initial and Final States CSV</strong>: For these particles, extracts their state (position, pressure, q, T) at <span class="config-param">ANALYSIS_START_HOUR</span> (initial) and at <code>target_step_hour</code> (final). Saves to a CSV file in <code>TRACKS_OUTPUT_DIR/data_from_master/</code>.</li>
+                            <li><strong>Initial Position Plots</strong>: Generates a 2D map showing initial positions (<span class="config-param">ANALYSIS_START_HOUR</span>) of particles arriving at the target. Points are colored by initial pressure. Saved in <code>TRACKS_OUTPUT_DIR/plots_from_master/</code>.</li>
+                            <li><strong>Trajectory Plots (Map View)</strong>: Generates a 2D map showing full trajectories from <span class="config-param">ANALYSIS_START_HOUR</span> to <code>target_step_hour</code>. Start/end points marked and colored by pressure. Saved in <code>TRACKS_OUTPUT_DIR/plots_from_master/</code>.</li>
+                            <li><strong>Property Change Along Trajectory Plots</strong>: For each selected particle, plots time series of its specific humidity (q, in g/kg) and temperature (T, in K). The time axis uses actual datetimes and covers from <span class="config-param">ANALYSIS_START_HOUR</span> up to <code>target_step_hour + TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS</code>. The target arrival time is marked. Saved in <code>TRACKS_OUTPUT_DIR/plots_from_master/change_along_trajectory/</code>.</li>
+                        </ol>
+                    </li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/initial_positions.png" alt="Initial Positions Plot" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 4: Example Plot of Initial Positions (Tracks Analysis).
+                </div>
+                <div class="placeholder">
+                    <img src="diagram/trajectories.png" alt="Trajectory Map for Target-Reaching Particles" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 5: Example Trajectory Map for Target-Reaching Particles (Tracks Analysis).
+                </div>
+                <div class="placeholder">
+                    <img src="diagram/q_change_target.png" alt="Specific Humidity Change Along Trajectory" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 6: Example Plot of Specific Humidity Change Along a Particle Track (Tracks Analysis).
+                </div>
+
+                <h3 id="analysis-plotting2d">5.3. 2D Plotting (<code>plotting_2d.py</code>)</h3>
+                <p>This module generates various 2D static visualizations and frames for 2D animations.</p>
+                <h4>5.3.1. Aggregate Maps (<code>plot_aggregate_map_generic</code>)</h4>
+                <p>These plots show spatial distributions of event frequencies or net changes across all relevant particle trajectories.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: To show spatial distributions of event frequencies or net changes.</li>
+                    <li><strong>Methodology</strong>: Uses <code>scipy.stats.binned_statistic_2d</code> to grid particle event data.
+                        <ul>
+                            <li><strong>Frequency Maps</strong>: Counts occurrences of "Uptake", "Release", "Warming", or "Cooling" events per grid cell.</li>
+                            <li><strong>Net Change Maps</strong>: Sums <code>dq_dt</code> (converted to g/kg) or <code>dT_dt</code> (K) per grid cell for "AllEvents" (non-neutral).</li>
+                        </ul>
+                    </li>
+                    <li><strong>Key Configuration</strong>: <span class="config-param">FIXED_PLOT_EXTENT_2D</span>, <span class="config-param">AGGREGATE_MAP_GRID_RESOLUTION_DEG</span>, various <code>CMAP_*</code> settings, <span class="config-param">TARGET_AREA_PLOT_COLOR</span>.</li>
+                    <li><strong>Output</strong>: PNG images in <code>PLOTS_OUTPUT_DIR/aggregate_maps/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/aggregate_moisture_uptake_freq.png" alt="Aggregate Moisture Uptake Frequency Map" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 7: Example Aggregate Moisture Uptake Frequency Map.
+                </div>
+
+                <h4>5.3.2. Composite Trajectory Density Plot (<code>plot_composite_trajectory_density</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Visualizes the path of all relevant particle trajectories on a single map, with event locations overlaid.</li>
+                    <li><strong>Methodology</strong>: Plots each particle's path with low alpha. Scatter plots mark locations of "Uptake" (blue) and "Release" (red) events. The target area is also shown.</li>
+                    <li><strong>Output</strong>: PNG image in <code>PLOTS_OUTPUT_DIR/aggregate_maps/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/composite_trajectory_density_events.png" alt="Composite Trajectory Density Plot" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 8: Example Composite Trajectory Density Plot.
+                </div>
+
+                <h4>5.3.3. Individual 2D Trajectories (<code>plot_selected_individual_2d_trajectories</code> via <code>_plot_individual_2d_trajectory_detailed_worker</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Detailed 2D visualization of individual particle paths for a selected subset of particles.</li>
+                    <li><strong>Methodology</strong>: For a selection of particles (up to <span class="config-param">MAX_INDIVIDUAL_TRAJECTORIES_TO_PLOT</span>), plots the 2D path (longitude vs. latitude). Trajectories are colored by pressure using <span class="config-param">CMAP_PRESSURE</span> and <span class="config-param">PRESSURE_BINS_CATEGORICAL</span>. Significant moisture/temperature events (Uptake, Release, Warming, Cooling) are marked along the path. Start/end points and target area are shown.</li>
+                    <li><strong>Output</strong>: PNG images in <code>PLOTS_OUTPUT_DIR/individual_trajectories/Moisture</code> (or <code>/Temperature</code>).</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/2D_moisture_traj.png" alt="Individual 2D Particle Trajectory with Events" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 9: Example Individual 2D Particle Trajectory with Events.
+                </div>
+
+                <h3 id="analysis-plotting3d">5.4. 3D Plotting (<code>plotting_3d.py</code>)</h3>
+                 <p>This module generates 3D static visualizations and frames for 3D animations.</p>
+                <h4>5.4.1. Individual 3D Trajectories (<code>plot_selected_individual_3d_trajectories</code> via <code>_plot_one_static_3d_traj</code>)</h4>
+                <p>These plots provide a 3D view of selected particle paths, including pressure changes.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: Detailed 3D visualization of individual particle paths.</li>
+                    <li><strong>Methodology</strong>: For selected particles, plots the 3D path (longitude, latitude, pressure). Trajectories are colored by a scalar variable (specific humidity or temperature). Event locations (Uptake/Release or Warming/Cooling), the 3D target volume, coastlines, and a floor representing the plot boundary are visualized.</li>
+                    <li><strong>Key Configuration</strong>: <span class="config-param">FIXED_PLOT_LONLAT_EXTENT_3D</span>, <span class="config-param">FIXED_PLOT_PRESSURE_EXTENT_3D</span>, <span class="config-param">DEFAULT_PLOT_VIEW_ANGLE_3D</span>, <span class="config-param">CMAP_SPECIFIC_HUMIDITY</span>, <span class="config-param">CMAP_TEMPERATURE</span>.</li>
+                    <li><strong>Output</strong>: PNG images in <code>PLOTS_OUTPUT_DIR/individual_trajectories/3D/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/3D_moisture_3D_trajectory.png" alt="Individual 3D Particle Trajectory" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 10: Example Individual 3D Particle Trajectory.
+                </div>
+
+                <h3 id="analysis-statistical">5.5. Statistical Analysis (<code>statistical_analysis.py</code>)</h3>
+                <p>This module provides a suite of functions for statistical characterization of particle behavior and atmospheric events.</p>
+
+                <h4>5.5.1. Vertical Profile of Changes (<code>plot_vertical_profile_change</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Shows average &Delta;q or &Delta;T versus pressure for different event types (Uptake/Release, Warming/Cooling) across all trajectories.</li>
+                    <li><strong>Methodology</strong>: Filters <code>master_df</code> for specific events. Bins data by pressure (<span class="config-param">VERTICAL_PROFILE_PRESSURE_BINS</span>) and calculates the mean of <code>dq_dt</code> (g/kg per X hrs) or <code>dT_dt</code> (K per X hrs) in each bin.</li>
+                    <li><strong>Output</strong>: Line plots saved in <code>PLOTS_OUTPUT_DIR/statistical_distributions/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/vertical_profile_moisture_change.png" alt="Vertical Profile of Average Moisture Change" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 11: Example Vertical Profile of Average Moisture Change.
+                </div>
+
+                <h4>5.5.2. Histogram of Event Magnitudes (<code>plot_histogram_event_magnitudes</code>)</h4>
+                <p>These histograms show the distribution of the strength of significant uptake/release events.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: Displays the distribution of the magnitudes of &Delta;q or &Delta;T for identified events.</li>
+                    <li><strong>Methodology</strong>: Filters for Uptake/Release (or Warming/Cooling) events and plots histograms of their <code>dq_dt</code> or <code>dT_dt</code> values.</li>
+                    <li><strong>Output</strong>: Histograms saved in <code>PLOTS_OUTPUT_DIR/statistical_distributions/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/histogram_moisture_event_magnitudes.png" alt="Histogram of Moisture Uptake Magnitudes" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 12: Example Histogram of Moisture Uptake Magnitudes.
+                </div>
+
+                <h4>5.5.3. Geographical Distribution of Last Event Points (<code>plot_last_event_points</code>)</h4>
+                <p>This map helps identify potential source regions for particles experiencing significant events just before reaching the target.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: Maps the locations where particles experienced their last significant "Uptake" (or "Warming") event *before* first arriving in the target area during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                    <li><strong>Methodology</strong>: For each relevant particle, finds its first arrival time in the target during the core event period. Then, searches its history *before* this arrival for the last occurrence of the specified event (e.g., "Uptake"). Plots these locations on a map, colored by pressure.</li>
+                    <li><strong>Output</strong>: Map plots saved in <code>PLOTS_OUTPUT_DIR/aggregate_maps/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/last_uptake_points_moisture.png" alt="Map of Last Uptake Points" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 13: Example Map of Last Uptake Points.
+                </div>
+
+                <h4>5.5.4. Time Spent in Target (<code>analyze_and_plot_time_in_target</code>)</h4>
+                <p>Quantifies the duration particles spend within the defined target region during the core event period.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: Quantifies how long relevant particles spend within the target region during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                    <li><strong>Methodology</strong>: Filters <code>master_df</code> for time steps where particles are inside the target box during the core event. Counts the number of such hourly records per particle.</li>
+                    <li><strong>Output</strong>: A CSV file (<code>time_spent_in_target.csv</code>) and a histogram showing the distribution of time spent in target, saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.5. Release/Cooling Amount in Target (<code>analyze_and_plot_release_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Quantifies the total amount of moisture (or heat) released (or lost) by particles *while they are inside the target region* during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                    <li><strong>Methodology</strong>: Filters for "Release" (or "Cooling") events occurring within the target box during core event steps. Sums the <code>dq_dt</code> (or <code>dT_dt</code>) values for each particle during these events. Note that <code>dq_dt</code>/<code>dT_dt</code> are rates over <span class="config-param">CHANGE_WINDOW_HOURS</span>.</li>
+                    <li><strong>Output</strong>: A CSV file (e.g., <code>total_moisture_release_in_target.csv</code>) and a histogram of these total release amounts, saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.6. Vertical Profile of Variables in Target (<code>plot_vertical_profile_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Shows the average of a specified variable (e.g., q, T, dq/dt<sub>1hr</sub>, dT/dt<sub>1hr</sub>) versus pressure, specifically for particle segments *within the target region* during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                    <li><strong>Methodology</strong>: Filters <code>master_df</code> for data points inside the target box during core event steps. Bins these points by their current pressure and calculates the mean of the specified <code>value_col_to_avg</code> in each pressure bin.</li>
+                    <li><strong>Output</strong>: Line plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/vertical_profile_in_target_dq_dt_1hr.png" alt="Vertical Profile of Average Specific Humidity in Target" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 14: Example Vertical Profile of Average Specific Humidity in Target.
+                </div>
+
+                <h4>5.5.7. Vertical Profile of Change vs. Mean Pressure (<code>plot_vertical_profile_change_vs_mean_pressure</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Investigates how 1-hour or 6-hour changes in q/T relate to the average pressure level over which the change occurred, for all trajectory points.</li>
+                    <li><strong>Methodology</strong>: Uses <code>dq_dt_1hr</code>/<code>dT_dt_1hr</code> (or <code>dq_dt_6hr</code>/<code>dT_dt_6hr</code>) and the corresponding <code>mean_pressure_1hr_window</code> (or <code>mean_pressure_6hr_window</code>). Bins by mean pressure and plots the average change in q/T for "Uptake"/"Warming" and "Release"/"Cooling" type events (event type based on 6hr change).</li>
+                    <li><strong>Output</strong>: Line plots saved in subdirectories of <code>PLOTS_OUTPUT_DIR/statistical_distributions/</code>.</li>
+                </ul>
+
+                <h4>5.5.8. Conditional Vertical Profiles in Target (<code>plot_conditional_vertical_profiles_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Examines how 1-hour or 6-hour changes in q/T within the target region vary with pressure, conditioned on whether particles are ascending, descending, or in near-neutral vertical motion.</li>
+                    <li><strong>Methodology</strong>: Filters for data points within the target during core event steps. Uses <code>dp_dt_1hr</code> to classify vertical motion (ascent: <code>dp_dt_1hr < -threshold</code>, descent: <code>dp_dt_1hr > threshold</code>). For each category, bins by current pressure and plots the average <code>dq_dt</code> or <code>dT_dt</code> (for the specified <code>time_window_hrs</code>).</li>
+                    <li><strong>Output</strong>: Line plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.9. Profile of Net Change During Target Transit (<code>plot_in_target_change_profile</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Calculates the net change in q/T for individual particles from the moment they enter the target box to when they exit it (during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>), and plots this net change against their average pressure while in the target.</li>
+                    <li><strong>Methodology</strong>: For each particle, identifies continuous segments where it's inside the target. Calculates &Delta;q = q<sub>exit</sub> - q<sub>entry</sub> and &Delta;T = T<sub>exit</sub> - T<sub>entry</sub> for each segment. Also calculates the average pressure during that transit. Bins these &Delta;q/&Delta;T values by average pressure and plots the mean.</li>
+                    <li><strong>Output</strong>: A CSV file of transit details and line plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.10. Current vs. Lagged Value Scatter Plot in Target (<code>plot_q_vs_q_lagged_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Visualizes the relationship between the current q (or T) and its value 1 or 6 hours prior, for particle segments within the target region. Points are colored by the change over that window.</li>
+                    <li><strong>Methodology</strong>: Filters for data points within the target during core event steps. Creates a scatter plot of <code>specific_humidity</code> (or <code>temperature</code>) against its lagged counterpart (<code>q_lagged_1hr/6hr</code> or <code>T_lagged_1hr/6hr</code>). Points are colored by <code>dq_dt_1hr/6hr</code> (or <code>dT_dt_1hr/6hr</code>). A 1:1 line indicates no change.</li>
+                    <li><strong>Output</strong>: Scatter plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.11. Time Evolution Plots (<code>plot_time_evolution_multi_step</code>, <code>plot_time_evolution_full_event</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: To show the average evolution of q/T and the frequency of associated events for ensembles of particles, aligned by their arrival time at the target.</li>
+                    <li><strong><code>plot_time_evolution_multi_step</code></strong>:
+                        <ul>
+                            <li>Focuses on cohorts of particles arriving at the target at specific hours defined in <span class="config-param">TIME_EVOLUTION_FOCUS_STEPS</span>.</li>
+                            <li>For each cohort, aligns their histories relative to their arrival time at that focus step. The x-axis is absolute datetime.</li>
+                            <li>Plots mean q/T (with std dev shading) and counts of Uptake/Release (or Warming/Cooling) events over time.</li>
+                        </ul>
+                    </li>
+                    <li><strong><code>plot_time_evolution_full_event</code></strong>:
+                        <ul>
+                            <li>Considers all relevant particles that arrive in the target at any point during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                            <li>Aligns their histories relative to their *first* arrival time in the target. The x-axis is hours relative to this first arrival.</li>
+                            <li>Plots mean q/T (with std dev shading) and event counts.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Output</strong>: Time series plots saved in <code>PLOTS_OUTPUT_DIR/time_evolution/</code>.</li>
+                </ul>
+
+                <h4>5.5.12. Vertical Profile of Change vs. Mean Pressure (<code>plot_vertical_profile_change_vs_mean_pressure</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Investigates how 1-hour or 6-hour changes in q/T relate to the average pressure level over which the change occurred, for all trajectory points.</li>
+                    <li><strong>Methodology</strong>: Uses <code>dq_dt_1hr</code>/<code>dT_dt_1hr</code> (or <code>dq_dt_6hr</code>/<code>dT_dt_6hr</code>) and the corresponding <code>mean_pressure_1hr_window</code> (or <code>mean_pressure_6hr_window</code>). Bins by mean pressure and plots the average change in q/T for "Uptake"/"Warming" and "Release"/"Cooling" type events (event type based on 6hr change).</li>
+                    <li><strong>Output</strong>: Line plots saved in subdirectories of <code>PLOTS_OUTPUT_DIR/statistical_distributions/</code>.</li>
+                </ul>
+
+                <h4>5.5.13. Conditional Vertical Profiles in Target (<code>plot_conditional_vertical_profiles_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Examines how 1-hour or 6-hour changes in q/T within the target region vary with pressure, conditioned on whether particles are ascending, descending, or in near-neutral vertical motion.</li>
+                    <li><strong>Methodology</strong>: Filters for data points within the target during core event steps. Uses <code>dp_dt_1hr</code> to classify vertical motion (ascent: <code>dp_dt_1hr < -threshold</code>, descent: <code>dp_dt_1hr > threshold</code>). For each category, bins by current pressure and plots the average <code>dq_dt</code> or <code>dT_dt</code> (for the specified <code>time_window_hrs</code>).</li>
+                    <li><strong>Output</strong>: Line plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.14. Profile of Net Change During Target Transit (<code>plot_in_target_change_profile</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Calculates the net change in q/T for individual particles from the moment they enter the target box to when they exit it (during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>), and plots this net change against their average pressure while in the target.</li>
+                    <li><strong>Methodology</strong>: For each particle, identifies continuous segments where it's inside the target. Calculates &Delta;q = q<sub>exit</sub> - q<sub>entry</sub> and &Delta;T = T<sub>exit</sub> - T<sub>entry</sub> for each segment. Also calculates the average pressure during that transit. Bins these &Delta;q/&Delta;T values by average pressure and plots the mean.</li>
+                    <li><strong>Output</strong>: A CSV file of transit details and line plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+
+                <h4>5.5.15. Current vs. Lagged Value Scatter Plot in Target (<code>plot_q_vs_q_lagged_in_target</code>)</h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Visualizes the relationship between the current q (or T) and its value 1 or 6 hours prior, for particle segments within the target region. Points are colored by the change over that window.</li>
+                    <li><strong>Methodology</strong>: Filters for data points within the target during core event steps. Creates a scatter plot of <code>specific_humidity</code> (or <code>temperature</code>) against its lagged counterpart (<code>q_lagged_1hr/6hr</code> or <code>T_lagged_1hr/6hr</code>). Points are colored by <code>dq_dt_1hr/6hr</code> (or <code>dT_dt_1hr/6hr</code>). A 1:1 line indicates no change.</li>
+                    <li><strong>Output</strong>: Scatter plots saved in <code>PLOTS_OUTPUT_DIR/target_area_analysis/</code>.</li>
+                </ul>
+                <ul>
+                    <li><strong>Purpose</strong>: To show the average evolution of q/T and the frequency of associated events for ensembles of particles, aligned by their arrival time at the target.</li>
+                    <li><strong><code>plot_time_evolution_multi_step</code></strong>:
+                        <ul>
+                            <li>Focuses on cohorts of particles arriving at the target at specific hours defined in <span class="config-param">TIME_EVOLUTION_FOCUS_STEPS</span>.</li>
+                            <li>For each cohort, aligns their histories relative to their arrival time at that focus step. The x-axis is absolute datetime.</li>
+                            <li>Plots mean q/T (with std dev shading) and counts of Uptake/Release (or Warming/Cooling) events over time.</li>
+                        </ul>
+                    </li>
+                    <li><strong><code>plot_time_evolution_full_event</code></strong>:
+                        <ul>
+                            <li>Considers all relevant particles that arrive in the target at any point during <span class="config-param">EVENT_CORE_ANALYSIS_STEPS</span>.</li>
+                            <li>Aligns their histories relative to their *first* arrival time in the target. The x-axis is hours relative to this first arrival.</li>
+                            <li>Plots mean q/T (with std dev shading) and event counts.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Output</strong>: Time series plots saved in <code>PLOTS_OUTPUT_DIR/time_evolution/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/time_evolution_moisture.png" alt="Time Evolution Plot" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 15: Example Time Evolution Plot (Multi-Step Focus).
+                </div>
+
+
+                <h3 id="analysis-animations">5.6. Animation Generation (<code>animations.py</code>)</h3>
+                <p>This module creates animated sequences from frames generated by <code>plotting_2d.py</code> and <code>plotting_3d.py</code>.</p>
+                <h4>5.6.1. Main Function: <code>create_all_animations</code></h4>
+                <p>This function orchestrates the generation of hourly snapshot frames and compiles them into animations.</p>
+                <ul>
+                    <li><strong>Purpose</strong>: To generate 2D and 3D animations of hourly particle snapshots.</li>
+                    <li><strong>Methodology</strong>:
+                        <ol>
+                            <li>Calculates global normalization ranges for q (g/kg) and T (K) across all animation frames to ensure consistent color scales. Uses percentiles (e.g., 0.5th and 99.5th) for robustness.</li>
+                            <li>Determines fixed plot extents for 2D animations (<span class="config-param">FIXED_PLOT_EXTENT_2D</span> or dynamic) and 3D animations (<span class="config-param">FIXED_PLOT_LONLAT_EXTENT_3D</span>, <span class="config-param">FIXED_PLOT_PRESSURE_EXTENT_3D</span> or dynamic).</li>
+                            <li>Generates static colorbar images for q and T using <code>_generate_static_colorbar</code>.</li>
+                            <li>For each hour from <span class="config-param">ANIMATION_FRAME_START_HOUR</span> to <span class="config-param">ANIMATION_FRAME_END_HOUR</span>:
+                                <ul>
+                                    <li>Calls <code>plotting_2d.generate_2d_snapshot_frame</code> to create 2D frames (one for q, one for T). Particles are colored by the respective variable.</li>
+                                    <li>Calls <code>plotting_3d.generate_3d_snapshot_frame</code> to create 3D frames (one for q, one for T). Particles are colored by the respective variable.</li>
+                                    <li>Frames are saved to subdirectories under <code>PLOTS_OUTPUT_DIR/animation_frames/</code>.</li>
+                                </ul>
+                            </li>
+                            <li>Compiles the generated 2D and 3D frames for q and T into separate GIF and MP4 animations using <code>imageio</code> via <code>_compile_animation_files</code>. Animation speed is controlled by <span class="config-param">ANIMATION_FPS</span>.</li>
+                        </ol>
+                    </li>
+                    <li><strong>Output</strong>: GIF and MP4 animation files, and static colorbar PNGs, saved in <code>PLOTS_OUTPUT_DIR/animations_output/</code>.</li>
+                </ul>
+                <div class="placeholder">
+                    <img src="diagram/Animation_Generation.png" alt="Flowchart of Animation Generation Process" style="width:100%; height:auto; max-width:1000px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 16: Flowchart of Animation Generation Process - Animation Generation Workflow.
+                </div>
+                <div class="placeholder">
+                    <img src="diagram/animation_3D_specific_humidity.gif" alt="Sample Frame from a 3D Moisture Animation" style="width:100%; height:auto; max-width:800px; display:block; margin-left:auto; margin-right:auto;">
+                    Figure 17: Sample of a 3D Moisture Animation.
+                </div>
+                <h3 id="analysis-moisturetracks">5.7. Moisture Tracks Analysis (<code>MoistureTracks.py</code>)</h3>
+                <p>This module focuses on particles that contribute moisture to the target area through release events. It analyzes their trajectories and spatial distribution of moisture release.</p>
+                <h4>5.7.1. Main Function: <code>run_moisture_tracks_analysis</code></h4>
+                <ul>
+                    <li><strong>Purpose</strong>: Identifies particles releasing moisture in the target area and generates analyses of their behavior.</li>
+                    <li><strong>Methodology</strong>:
+                        <ol>
+                            <li>Filters <code>master_df</code> for "Release" events in the target area to identify moisture-releasing particles.</li>
+                            <li>Generates cumulative trajectory plots for all releasing particles, colored by pressure or release amount.</li>
+                            <li>Creates hourly trajectory plots for particles arriving at target at specific hours.</li>
+                            <li>Computes and plots net moisture flux (uptake - release) aggregated on a grid.</li>
+                            <li>Grids spatial moisture contribution, aggregating release amounts per grid cell and generating a heatmap/map with CSV export.</li>
+                            <li>Plots time evolution of specific humidity and change for releasing particles.</li>
+                            <li>Plots total specific humidity in target over time.</li>
+                            <li>Generates hourly Excel files with specific humidity details.</li>
+                        </ol>
+                    </li>
+                    <li><strong>Output</strong>: Trajectory maps, net flux maps, contribution heatmaps, time evolution plots, Excel data files, all saved in <code>MOISTURE_TRACKS_OUTPUT_DIR</code>.</li>
+                </ul>
+
+            </section>
+
+             <section id="config-file" style="display: none;">
+                <h2>5. Configuration (<code>config.py</code>)</h2>
+                <p>The <code>config.py</code> file is central to the entire workflow. It allows users to customize nearly every aspect of the analysis without modifying the core processing scripts. Key sections include:</p>
+                <ul>
+                    <li>Core Simulation & Data Paths (e.g., <span class="config-param">BASE_OUTPUT_DIR</span>, <span class="config-param">AUGMENTED_PARTICLE_DATA_DIR</span>)</li>
+                    <li>Event Definition & Particle Selection (e.g., <span class="config-param">SIMULATION_START_DATETIME</span>, <span class="config-param">TARGET_LAT_CENTER</span>, <span class="config-param">RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS</span>)</li>
+                    <li>Detailed Analysis Configuration (e.g., <span class="config-param">ANALYSIS_START_HOUR</span>, <span class="config-param">DQ_THRESHOLD_KG_PER_KG</span>, <span class="config-param">CHANGE_WINDOW_HOURS</span>)</li>
+                    <li>Plotting & Animation Configuration (e.g., <span class="config-param">FIXED_PLOT_EXTENT_2D</span>, <span class="config-param">ANIMATION_FPS</span>, Colormaps like <span class="config-param">CMAP_SPECIFIC_HUMIDITY</span>)</li>
+                    <li>Tracks Analysis Specific Settings (e.g., <span class="config-param">TRACKS_TARGET_STEPS</span>, <span class="config-param">TRACKS_PLOT_EXTENT_2D</span>)</li>
+                    <li>Parallel Processing (<span class="config-param">NUM_WORKERS</span>)</li>
+                    <li>Output Subdirectory Definitions (e.g., <span class="config-param">INDIVIDUAL_TRAJ_PLOTS_SUBDIR</span>)</li>
+                </ul>
+                <p>Careful adjustment of these parameters is crucial for obtaining meaningful results tailored to specific research questions or datasets.</p>
+            </section>
+
+            <section id="outputs">
+                <h2>6. Expected Outputs</h2>
+                <p>The analysis pipeline generates a variety of outputs, organized into subdirectories within the <span class="config-param">BASE_OUTPUT_DIR</span> specified in <code>config.py</code>. These include:</p>
+                <ul>
+                    <li><strong>Processed Data</strong> (under <code>1_processed_data/</code>):
+                        <ul>
+                            <li><code>relevant_particle_ids_for_analysis.csv</code>: List of particle IDs selected for detailed analysis.</li>
+                            <li><code>filtered_hourly_data/</code>: Hourly CSVs containing only data for relevant particles.</li>
+                            <li><code>analyzed_particle_histories/</code>: CSVs for each relevant particle with calculated dq/dt, dT/dt, event types, etc.</li>
+                    <li><code>tracks_analysis_output/data_from_master/</code>: CSVs from tracks analysis (initial/final states).</li>
+                    <li><code>moisture_tracks_output/</code>: Data and Excel files from moisture tracks analysis.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Plots & Animations</strong> (under <code>2_plots_and_animations/</code>):
+                        <ul>
+                            <li><code>aggregate_maps/</code>: Static 2D aggregate maps (PNG).</li>
+                            <li><code>individual_trajectories/</code>: Static 2D and 3D individual trajectory plots (PNG).</li>
+                            <li><code>statistical_distributions/</code>, <code>target_area_analysis/</code>, <code>time_evolution/</code>: Various statistical plots (PNG).</li>
+                            <li><code>tracks_analysis_output/plots_from_master/</code>: Plots from tracks analysis (PNG).</li>
+                            <li><code>animation_frames/</code>: Individual frames for animations (PNG).</li>
+                            <li><code>animations_output/</code>: Compiled 2D and 3D animations (GIF, MP4) and static colorbars (PNG).</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="placeholder">
+                    <p>Figure 18: Example Output Directory Structure (showing only folders)</p>
+<pre style="text-align: left; background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc; overflow-x: auto;">
+BASE_OUTPUT_DIR/
+├── 1_processed_data/
+│   ├── filtered_hourly_data/
+│   └── analyzed_particle_histories/
+└── 2_plots_and_animations/
+    ├── tracks_analysis_output/
+    │   ├── data_from_master/
+    │   └── plots_from_master/
+    │       └── change_along_trajectory/
+    ├── individual_trajectories/
+    │   ├── Moisture/
+    │   ├── Temperature/
+    │   └── 3D/
+    │       ├── Moisture/
+    │       └── Temperature/
+    ├── aggregate_maps_moisture/
+    ├── aggregate_maps_temp/
+    ├── animation_frames_2d/
+    │   ├── specific_humidity/
+    │   └── temperature/
+    ├── animation_frames_3d/
+    │   ├── specific_humidity/
+    │   └── temperature/
+    ├── animations_output/
+    ├── statistical_distributions_moisture/
+    │   ├── profile_change_vs_mean_p_6hr/
+    │   └── profile_change_vs_mean_p_1hr/
+    ├── statistical_distributions_temp/
+    │   ├── profile_change_vs_mean_p_6hr/
+    │   └── profile_change_vs_mean_p_1hr/
+    ├── target_area_analysis/
+    └── time_evolution/
+</pre>
+                </div>
+            </section>
+
+            <section id="authors">
+                <h2>Authors</h2>
+                <p><strong>Manish Shukla</strong> - Postdoctoral student, Indian Institute of Technology Hyderabad (<a href="mailto:manishshukla01@live.com">manishshukla01@live.com</a>)</p>
+                <p><strong>R. Maheshwaran</strong> - Assistant Professor, Indian Institute of Technology Hyderabad</p>
+            </section>
+
+            <section id="future">
+                <h2>7. Future Enhancements / Considerations</h2>
+                <ul>
+                    <li>Integration of more sophisticated statistical analysis methods (e.g., clustering).</li>
+                    <li>Interactive plotting capabilities (e.g., using Bokeh or Plotly).</li>
+                    <li>More detailed source-receptor relationship analysis.</li>
+                    <li>Optimization of data loading and processing for very large datasets.</li>
+                </ul>
+            </section>
+
+        </div>
+    </main>
+</body>
+</html>

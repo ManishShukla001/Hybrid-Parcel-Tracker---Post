@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Structure Diagram</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        svg { border: 1px solid #ccc; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .node {
+            fill: #3498db;
+            stroke: #2980b9;
+            stroke-width: 1;
+        }
+        .node-text {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            fill: #fff;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+         .conceptual-node {
+            fill: #9b59b6;
+            stroke: #8e44ad;
+            stroke-width: 1;
+        }
+        .conceptual-node-text {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            fill: #fff;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+        .edge {
+            stroke: #333;
+            stroke-width: 1;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        .edge-dashed {
+             stroke: #333;
+            stroke-width: 1;
+            fill: none;
+            marker-end: url(#arrowhead);
+            stroke-dasharray: 4 2; /* Dashed line for conceptual flow */
+        }
+        .arrowhead {
+            fill: #333;
+            stroke: none;
+        }
+    </style>
+</head>
+<body>
+
+<svg width="800" height="700" viewBox="0 0 800 700">
+    <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="arrowhead" />
+        </marker>
+    </defs>
+
+    <!-- Node Dimensions -->
+    <rect id="node-template" width="150" height="40" rx="5" ry="5" style="display:none;"/>
+
+    <!-- Nodes (Files) -->
+    <rect x="325" y="50" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="400" y="70" class="node-text">config.py</text>
+
+    <rect x="325" y="120" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="400" y="140" class="node-text">main_analysis_workflow.py</text>
+
+    <rect x="50" y="220" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="125" y="240" class="node-text">setup_logging.py</text>
+
+    <rect x="325" y="220" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="400" y="240" class="node-text">data_processing.py</text>
+
+    <rect x="600" y="220" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="675" y="240" class="node-text">tracks_analysis.py</text>
+
+    <rect x="50" y="400" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="125" y="420" class="node-text">plotting_2d.py</text>
+
+    <rect x="325" y="400" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="400" y="420" class="node-text">plotting_3d.py</text>
+
+    <rect x="600" y="400" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="675" y="420" class="node-text">statistical_analysis.py</text>
+
+    <rect x="325" y="580" width="150" height="40" rx="5" ry="5" class="node" />
+    <text x="400" y="600" class="node-text">animations.py</text>
+
+    <!-- Conceptual Nodes -->
+     <rect x="325" y="310" width="150" height="40" rx="5" ry="5" class="conceptual-node" />
+    <text x="400" y="330" class="conceptual-node-text">Master DataFrame</text>
+
+     <rect x="50" y="10" width="150" height="40" rx="5" ry="5" class="conceptual-node" />
+    <text x="125" y="30" class="conceptual-node-text">Input Data (CSVs, NetCDF)</text>
+
+     <rect x="600" y="650" width="150" height="40" rx="5" ry="5" class="conceptual-node" />
+    <text x="675" y="670" class="conceptual-node-text">Output Files/Plots/Animations</text>
+
+    <!-- Edges (Connections) -->
+    <!-- config.py imports -->
+    <line x1="400" y1="90" x2="400" y2="120" class="edge" /> <!-- config -> main -->
+    <line x1="325" y1="70" x2="200" y2="70" class="edge" /> <!-- config -> setup_logging (conceptual) -->
+    <line x1="325" y1="70" x2="325" y2="220" class="edge" /> <!-- config -> data_processing -->
+    <line x1="475" y1="70" x2="600" y2="70" class="edge" /> <!-- config -> tracks_analysis -->
+    <line x1="325" y1="70" x2="50" y2="400" class="edge" /> <!-- config -> plotting_2d -->
+    <line x1="475" y1="70" x2="325" y2="400" class="edge" /> <!-- config -> plotting_3d -->
+    <line x1="475" y1="70" x2="600" y2="400" class="edge" /> <!-- config -> statistical_analysis -->
+    <line x1="400" y1="90" x2="400" y2="580" class="edge" /> <!-- config -> animations -->
+
+    <!-- main_analysis_workflow.py calls -->
+    <line x1="400" y1="160" x2="400" y2="220" class="edge" /> <!-- main -> data_processing -->
+    <line x1="475" y1="140" x2="600" y2="220" class="edge" /> <!-- main -> tracks_analysis -->
+    <line x1="325" y1="140" x2="50" y2="400" class="edge" /> <!-- main -> plotting_2d -->
+    <line x1="475" y1="140" x2="325" y2="400" class="edge" /> <!-- main -> plotting_3d -->
+    <line x1="475" y1="140" x2="600" y2="400" class="edge" /> <!-- main -> statistical_analysis -->
+    <line x1="400" y1="160" x2="400" y2="580" class="edge" /> <!-- main -> animations -->
+    <line x1="325" y1="140" x2="200" y2="220" class="edge" /> <!-- main -> setup_logging -->
+
+    <!-- Data Flow -->
+    <line x1="125" y1="50" x2="325" y2="220" class="edge-dashed" /> <!-- Input Data -> data_processing -->
+    <line x1="400" y1="260" x2="400" y2="310" class="edge-dashed" /> <!-- data_processing -> Master DataFrame -->
+
+    <!-- Master DataFrame Usage -->
+    <line x1="400" y1="350" x2="400" y2="400" class="edge-dashed" /> <!-- Master DataFrame -> plotting_3d -->
+    <line x1="325" y1="330" x2="200" y2="400" class="edge-dashed" /> <!-- Master DataFrame -> plotting_2d -->
+    <line x1="475" y1="330" x2="600" y2="400" class="edge-dashed" /> <!-- Master DataFrame -> statistical_analysis -->
+    <line x1="475" y1="330" x2="600" y2="260" class="edge-dashed" /> <!-- Master DataFrame -> tracks_analysis -->
+    <line x1="400" y1="350" x2="400" y2="580" class="edge-dashed" /> <!-- Master DataFrame -> animations -->
+
+    <!-- Frame Flow to Animations -->
+    <line x1="125" y1="440" x2="325" y2="580" class="edge-dashed" /> <!-- plotting_2d -> animations -->
+    <line x1="400" y1="440" x2="400" y2="580" class="edge-dashed" /> <!-- plotting_3d -> animations -->
+
+    <!-- Output -->
+    <line x1="675" y1="440" x2="675" y2="650" class="edge-dashed" /> <!-- statistical_analysis -> Output -->
+    <line x1="675" y1="260" x2="675" y2="650" class="edge-dashed" /> <!-- tracks_analysis -> Output -->
+    <line x1="125" y1="440" x2="600" y2="650" class="edge-dashed" /> <!-- plotting_2d -> Output (indirect via frames/animations) -->
+    <line x1="400" y1="440" x2="600" y2="650" class="edge-dashed" /> <!-- plotting_3d -> Output (indirect via frames/animations) -->
+    <line x1="400" y1="620" x2="675" y2="650" class="edge-dashed" /> <!-- animations -> Output -->
+    <line x1="400" y1="260" x2="600" y2="650" class="edge-dashed" /> <!-- data_processing -> Output (processed data files) -->
+
+</svg>
+
+</body>
+</html>
+<!-- This HTML file contains an SVG diagram representing the code structure of the analysis workflow. 
+     It includes nodes for each Python file and conceptual nodes for data flow, with edges showing relationships and data flow. -->

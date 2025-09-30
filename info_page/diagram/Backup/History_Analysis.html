@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Particle History Analysis Workflow</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh; 
+            padding: 20px 0; 
+            box-sizing: border-box;
+        }
+        .main-app-container {
+            width: 95%;
+            max-width: 800px; /* Can be narrower for this linear flow */
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        h1 {
+            text-align: center;
+            color: #1a2533;
+            margin: 25px 0;
+            font-size: 1.7em; /* Adjusted title size */
+            font-weight: 300;
+        }
+         .subtitle-flowchart {
+            text-align: center;
+            color: #566573;
+            margin-bottom: 25px;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+        #controls { /* Hidden by default */
+            display: none; 
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .diagram-container-wrapper {
+            flex-grow: 1;
+            width: 100%;
+            overflow: auto; 
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .diagram-container {
+            width: 700px; 
+            height: 1350px; /* Adjusted height for these steps */
+            position: relative; 
+            border: 1px solid #d1d8e0; 
+            background-color: #ffffff;
+            border-radius: 10px;
+        }
+        
+        .flowchart-step { /* Renamed from flowchart-stage for specificity */
+            position: absolute;
+            border-radius: 10px; 
+            padding: 15px 20px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+            cursor: grab;
+            user-select: none;
+            border: none; 
+            box-sizing: border-box;
+            display: flex; 
+            flex-direction: column;
+            align-items: flex-start; 
+            text-align: left;
+            color: white;
+            /* Using a slightly different gradient for these specific steps */
+            background-image: linear-gradient(135deg, #4A90E2 0%, #2C5364 100%); /* Blue to Dark Teal */
+            transition: all 0.2s ease-out;
+        }
+        .flowchart-step:hover {
+            box-shadow: 0 8px 22px rgba(0,0,0,0.15);
+            transform: translateY(-2px) scale(1.01);
+        }
+        .flowchart-step.selected {
+            box-shadow: 0 0 0 3.5px rgba(74,144,226,0.6), 0 8px 22px rgba(74,144,226,0.4);
+            z-index: 10;
+        }
+        .step-title {
+            font-size: 15px; /* Slightly smaller for these steps */
+            font-weight: 700;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.25);
+            padding-bottom: 8px;
+            width: 100%;
+        }
+        .step-detail {
+            font-size: 12.5px; /* Slightly smaller */
+            line-height: 1.55;
+            margin-bottom: 4px;
+        }
+        .step-detail strong {
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+        .step-detail code, .step-detail .math { /* For code and math-like symbols */
+            background-color: rgba(0,0,0,0.15);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 11.5px;
+            color: #f1c40f; 
+        }
+
+        .arrow-svg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .arrow-path { stroke-width: 2.5px; fill: none; pointer-events: stroke; cursor: pointer; transition: stroke 0.2s, stroke-width 0.2s; }
+        .flow-arrow { stroke: #5dade2; } /* Lighter blue for this flow */
+        .arrow-path.selected { stroke-width: 4px; stroke: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="main-app-container">
+        <h1>Per-Particle Analysis Steps</h1>
+        <p class="subtitle-flowchart"><code>_analyze_single_particle_history_worker</code> in <code>data_processing.py</code></p>
+        <div id="controls">
+            <button id="addBlockBtn">Add Step</button>
+        </div>
+        <div class="diagram-container-wrapper">
+            <div class="diagram-container" id="diagramContainer">
+                <svg class="arrow-svg-overlay" id="arrowSvg">
+                    <defs>
+                        <marker id="arrowhead-flow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" fill="#5dade2"><polygon points="0 0, 8 3, 0 6" /></marker>
+                        <marker id="arrowhead-flow-selected" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" fill="#2980b9"><polygon points="0 0, 8 3, 0 6" /></marker>
+                    </defs>
+                    <g id="arrowPathsContainer"></g>
+                </svg>
+                
+                <!-- Flowchart Steps (DIVs) -->
+                <div id="step1Load" class="flowchart-step" style="top: 50px; left: 100px; width: 500px; min-height: 90px;">
+                    <div class="step-title">1. Load Filtered Particle History</div>
+                    <div class="step-detail"><strong>Action:</strong> Concatenate all hourly data for a single particle.</div>
+                </div>
+
+                <div id="step2Calc6hr" class="flowchart-step" style="top: 190px; left: 100px; width: 500px; min-height: 90px;">
+                    <div class="step-title">2. Calculate 6-hr Changes</div>
+                    <div class="step-detail"><strong>Action:</strong> Compute <span class="math">&Delta;q_6hr(t)</span> and <span class="math">&Delta;T_6hr(t)</span>.</div>
+                </div>
+
+                <div id="step3Classify6hr" class="flowchart-step" style="top: 330px; left: 100px; width: 500px; min-height: 100px;">
+                    <div class="step-title">3. Classify 6-hr Events</div>
+                    <div class="step-detail"><strong>Action:</strong> Identify Moisture Uptake/Release and Temperature Warming/Cooling based on 6-hr changes and thresholds.</div>
+                </div>
+                
+                <div id="step4Calc1hr" class="flowchart-step" style="top: 480px; left: 100px; width: 500px; min-height: 90px;">
+                    <div class="step-title">4. Calculate 1-hr Changes</div>
+                    <div class="step-detail"><strong>Action:</strong> Compute <span class="math">&Delta;q_1hr(t)</span> and <span class="math">&Delta;T_1hr(t)</span>.</div>
+                </div>
+
+                <div id="step5PressureMetrics" class="flowchart-step" style="top: 620px; left: 100px; width: 500px; min-height: 90px;">
+                    <div class="step-title">5. Calculate Pressure Metrics</div>
+                    <div class="step-detail"><strong>Action:</strong> Compute <span class="math">P_mean,6hr</span>, <span class="math">P_mean,1hr</span>, and <span class="math">&Delta;P_1hr</span> (dp/dt).</div>
+                </div>
+
+                <div id="step6SaveAnalyzed" class="flowchart-step" style="top: 760px; left: 100px; width: 500px; min-height: 90px;">
+                    <div class="step-title">6. Save Analyzed Data</div>
+                    <div class="step-detail"><strong>Action:</strong> Store all original and newly computed columns to a particle-specific CSV file.</div>
+                </div>
+                 <!-- Conceptual End -->
+                <div id="endWorkerFlow" class="flowchart-step" style="top: 900px; left: 250px; width: 200px; height: 60px; background-image: linear-gradient(135deg, #85c1e9 0%, #5dade2 100%);">
+                     <div class="step-title" style="text-align:center; border-bottom:none;">End Worker</div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+<script>
+// --- Standard Interactive Diagram JavaScript (adapted for this flowchart) ---
+document.addEventListener('DOMContentLoaded', () => {
+    const diagramContainer = document.getElementById('diagramContainer');
+    const arrowSvg = document.getElementById('arrowSvg');
+    const arrowPathsContainer = document.getElementById('arrowPathsContainer');
+    const ns = "http://www.w3.org/2000/svg";
+
+    let components = {};
+    let arrows = {};
+    let activeDrag = null;
+    let dragOffsetX, dragOffsetY;
+    let selectedElement = null, selectedElementType = null;
+    let nextArrowId = 0;
+
+    // Initialize components
+    document.querySelectorAll('.flowchart-step').forEach(compEl => {
+        const id = compEl.id;
+        components[id] = {
+            el: compEl,
+            x: compEl.offsetLeft,
+            y: compEl.offsetTop,
+            width: compEl.offsetWidth,
+            height: compEl.offsetHeight,
+            connections: []
+        };
+        compEl.addEventListener('mousedown', onComponentMouseDown);
+        compEl.addEventListener('click', (e) => { e.stopPropagation(); selectElement(compEl, 'component'); });
+    });
+    
+    function getIntersectionPointWithRect(rectData, externalPoint, isStartPoint) {
+        const { x, y, width, height } = rectData;
+        const rectCenter = { x: x + width / 2, y: y + height / 2 };
+        // For vertical flow, prioritize top/bottom connection points
+        if (isStartPoint) return { x: rectCenter.x, y: y + height }; // Arrow starts from bottom center
+        return { x: rectCenter.x, y: y }; // Arrow ends at top center
+    }
+
+    const initialArrowDefs = [
+        { from: 'step1Load', to: 'step2Calc6hr', type: 'flow' },
+        { from: 'step2Calc6hr', to: 'step3Classify6hr', type: 'flow' },
+        { from: 'step3Classify6hr', to: 'step4Calc1hr', type: 'flow' },
+        { from: 'step4Calc1hr', to: 'step5PressureMetrics', type: 'flow' },
+        { from: 'step5PressureMetrics', to: 'step6SaveAnalyzed', type: 'flow' },
+        { from: 'step6SaveAnalyzed', to: 'endWorkerFlow', type: 'flow' }
+    ];
+
+    initialArrowDefs.forEach(def => {
+        const id = `arrow-${nextArrowId++}`;
+        createArrowElement(id, def.from, def.to, def.type);
+    });
+
+    function updateArrowPath(arrowId) {
+        const arrow = arrows[arrowId];
+        if (!arrow || !components[arrow.fromId] || !components[arrow.toId]) return;
+        const fromComp = components[arrow.fromId];
+        const toComp = components[arrow.toId];
+        const fromCenter = { x: fromComp.x + fromComp.width / 2, y: fromComp.y + fromComp.height / 2 };
+        const toCenter = { x: toComp.x + toComp.width / 2, y: toComp.y + toComp.height / 2 };
+        const startPoint = getIntersectionPointWithRect(fromComp, toCenter, true);
+        const endPoint = getIntersectionPointWithRect(toComp, fromCenter, false);
+        let d = `M ${startPoint.x} ${startPoint.y} L ${endPoint.x} ${endPoint.y}`; // Straight line for this simple flow
+        arrow.el.setAttribute('d', d);
+    }
+
+    function createArrowElement(id, fromId, toId, type) {
+        if (!components[fromId] || !components[toId]) { return; }
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('id', id);
+        path.classList.add('arrow-path', `${type}-arrow`);
+        path.setAttribute('marker-end', `url(#arrowhead-${type}${selectedElement === path ? '-selected':''})`);
+        arrowPathsContainer.appendChild(path);
+        arrows[id] = { el: path, fromId, toId, type };
+        components[fromId].connections.push(id);
+        components[toId].connections.push(id);
+        updateArrowPath(id);
+        path.addEventListener('click', (e) => { e.stopPropagation(); selectElement(path, 'arrow'); });
+    }
+
+    function onComponentMouseDown(e) {
+        if (e.button !== 0) return;
+        activeDrag = e.currentTarget;
+        activeDrag.classList.add('selected'); 
+        dragOffsetX = e.clientX - activeDrag.offsetLeft;
+        dragOffsetY = e.clientY - activeDrag.offsetTop;
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', onDragEnd);
+        selectElement(activeDrag, 'component');
+    }
+
+    function onDrag(e) {
+        if (!activeDrag) return;
+        e.preventDefault();
+        let newX = e.clientX - dragOffsetX;
+        let newY = e.clientY - dragOffsetY;
+        newX = Math.max(0, Math.min(newX, diagramContainer.offsetWidth - activeDrag.offsetWidth));
+        newY = Math.max(0, Math.min(newY, diagramContainer.offsetHeight - activeDrag.offsetHeight));
+        activeDrag.style.left = newX + 'px';
+        activeDrag.style.top = newY + 'px';
+        const compData = components[activeDrag.id];
+        compData.x = newX;
+        compData.y = newY;
+        compData.connections.forEach(arrowId => updateArrowPath(arrowId));
+    }
+
+    function onDragEnd() {
+        if (!activeDrag) return;
+        activeDrag = null;
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', onDragEnd);
+    }
+
+    function selectElement(element, type) {
+        if (selectedElement) {
+            selectedElement.classList.remove('selected');
+             if (selectedElementType === 'arrow' && arrows[selectedElement.id]) {
+                const arrowData = arrows[selectedElement.id];
+                arrowData.el.setAttribute('marker-end', `url(#arrowhead-${arrowData.type})`);
+            }
+        }
+        selectedElement = element;
+        selectedElementType = type;
+        if (selectedElement) {
+            selectedElement.classList.add('selected');
+            if (type === 'arrow' && arrows[element.id]) { 
+                 const arrowData = arrows[element.id];
+                arrowData.el.setAttribute('marker-end', `url(#arrowhead-${arrowData.type}-selected)`);
+            }
+        }
+    }
+    
+    diagramContainer.addEventListener('click', (e) => {
+        if (e.target === diagramContainer) selectElement(null, null);
+    });
+
+    console.log("Interactive worker flowchart initialized.");
+});
+</script>
+</body>
+</html>
