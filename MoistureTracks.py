@@ -187,16 +187,16 @@ def plot_net_moisture_flux(master_df, particle_ids, output_dir, config_obj):
     
     event_df = master_df[
         (master_df['particle_id'].isin(particle_ids)) &
-        (master_df['moisture_event_type'].isin(['Pickup', 'Release']))
+        (master_df['moisture_event_type'].isin(['Uptake', 'Release']))
     ].copy()
 
     if event_df.empty:
         print("No moisture uptake or release events found for the given particles.")
         return
 
-    # IMPORTANT: Use the sign of dq_dt. Uptake is positive, Release is negative.
+    # IMPORTANT: Use the sign of dq_dt_input. Uptake is positive, Release is negative.
     # The values are converted to g/kg.
-    event_df['amount'] = event_df['dq_dt'] * 1000 
+    event_df['amount'] = event_df['dq_dt_input'] * 1000 
 
     grid_res = config_obj.AGGREGATE_MAP_GRID_RESOLUTION_DEG
     lon_extent = config_obj.FIXED_PLOT_EXTENT_2D[:2]
@@ -245,8 +245,8 @@ def plot_moisture_contribution_grid(master_df, particle_ids, output_dir, config_
         print("No moisture release events found for the given particles.")
         return
 
-    # 2. Use the absolute value of dq_dt, converted to g/kg, as the contribution amount
-    release_events_df['amount'] = release_events_df['dq_dt'].abs() * 1000
+    # 2. Use the absolute value of dq_dt_input, converted to g/kg, as the contribution amount
+    release_events_df['amount'] = release_events_df['dq_dt_input'].abs() * 1000
 
     # 3. Define grid parameters
     grid_res = 0.2  # Grid size set to 0.2 as per user request.
@@ -673,7 +673,7 @@ def run_moisture_tracks_analysis(master_df: pd.DataFrame, config_obj):
     print(f"Found {len(moisture_releasing_particle_ids)} particles releasing moisture in the target area.")
 
     # Calculate total moisture release for each particle and save to CSV
-    total_release = releasing_in_target_df.groupby('particle_id')['dq_dt'].sum().abs() * 1000 # as g/kg
+    total_release = releasing_in_target_df.groupby('particle_id')['dq_dt_input'].sum().abs() * 1000 # as g/kg
     total_release_df = total_release.reset_index()
     total_release_df.columns = ['particle_id', 'total_moisture_release_g_kg']
     output_csv_path = output_dir / "moisture_releasing_particles_summary.csv"

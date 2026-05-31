@@ -45,24 +45,35 @@ def plot_vertical_profile_change(master_df: pd.DataFrame, value_column_base: str
     Plots the average change (dq/dt or dT/dt) vs. pressure for uptake/release
     or warming/cooling events across all relevant particles.
     """
+    if value_column_base not in master_df.columns or master_df[value_column_base].isna().all():
+        print(f"Skipping vertical profile change plot: column {value_column_base} not available.")
+        return
+
     output_dir = config_obj.PLOTS_OUTPUT_DIR / (config_obj.STATISTICAL_DISTRIBUTIONS_MOISTURE_SUBDIR if variable_name == "Moisture" else config_obj.STATISTICAL_DISTRIBUTIONS_TEMP_SUBDIR)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"Plotting: Vertical Profile of {variable_name} Changes (All Trajectories)")
+    print(f"Plotting: Vertical Profile of {variable_name} Changes ({value_column_base}) (All Trajectories)")
     if master_df.empty: return
+
+    if "input" in value_column_base:
+        window_hrs = config_obj.DATA_INTERVAL_HOURS
+    elif "1hr" in value_column_base:
+        window_hrs = 1
+    else:
+        window_hrs = config_obj.CHANGE_WINDOW_HOURS
 
     if variable_name == "Moisture":
         event_type_col = 'moisture_event_type'
         pos_event_label, neg_event_label = 'Uptake', 'Release'
-        value_col_plot = 'dq_dt_g_kg' # Assumes this will be created from dq_dt
-        master_df[value_col_plot] = master_df['dq_dt'].dropna() * 1000
-        cbar_unit_label = f"(g/kg per {config_obj.CHANGE_WINDOW_HOURS}hrs)"
+        value_col_plot = f'{value_column_base}_g_kg'
+        master_df[value_col_plot] = master_df[value_column_base].dropna() * 1000
+        cbar_unit_label = f"(g/kg per {window_hrs}hrs)"
     elif variable_name == "Temperature":
         event_type_col = 'temp_event_type'
         pos_event_label, neg_event_label = 'Warming', 'Cooling'
-        value_col_plot = 'dT_dt_K' # Assumes this will be created from dT_dt
-        master_df[value_col_plot] = master_df['dT_dt'].dropna() # Already in K
-        cbar_unit_label = f"(K per {config_obj.CHANGE_WINDOW_HOURS}hrs)"
+        value_col_plot = f'{value_column_base}_K'
+        master_df[value_col_plot] = master_df[value_column_base].dropna() # Already in K
+        cbar_unit_label = f"(K per {window_hrs}hrs)"
     else: return
 
     event_df = master_df[master_df[event_type_col] != 'Neutral'].copy()
@@ -109,31 +120,42 @@ def plot_vertical_profile_change(master_df: pd.DataFrame, value_column_base: str
     ax.grid(True, linestyle=':', alpha=0.7)
     ax.tick_params(axis='both', which='major', labelsize=DEFAULT_FONT_SIZE * FONT_SCALE)
 
-    plt.savefig(output_dir / f"vertical_profile_{variable_name.lower()}_change.png", bbox_inches='tight', dpi=150)
+    plt.savefig(output_dir / f"vertical_profile_{variable_name.lower()}_change_{value_column_base}.png", bbox_inches='tight', dpi=150)
     plt.close(fig); gc.collect()
 
 def plot_histogram_event_magnitudes(master_df: pd.DataFrame, value_column_base: str,
                                     variable_name: str, config_obj):
     """Plots histograms of event magnitudes (uptake/release or warming/cooling)."""
+    if value_column_base not in master_df.columns or master_df[value_column_base].isna().all():
+        print(f"Skipping magnitude histogram plot: column {value_column_base} not available.")
+        return
+
     output_dir = config_obj.PLOTS_OUTPUT_DIR / (config_obj.STATISTICAL_DISTRIBUTIONS_MOISTURE_SUBDIR if variable_name == "Moisture" else config_obj.STATISTICAL_DISTRIBUTIONS_TEMP_SUBDIR)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Plotting: Histogram of {variable_name} Event Magnitudes")
+    print(f"Plotting: Histogram of {variable_name} Event Magnitudes ({value_column_base})")
     if master_df.empty: return
+
+    if "input" in value_column_base:
+        window_hrs = config_obj.DATA_INTERVAL_HOURS
+    elif "1hr" in value_column_base:
+        window_hrs = 1
+    else:
+        window_hrs = config_obj.CHANGE_WINDOW_HOURS
 
     if variable_name == "Moisture":
         event_type_col = 'moisture_event_type'
         pos_event_label, neg_event_label = 'Uptake', 'Release'
-        value_col_plot = 'dq_dt_g_kg'
-        master_df[value_col_plot] = master_df['dq_dt'].dropna() * 1000
-        unit_label = f"(g/kg per {config_obj.CHANGE_WINDOW_HOURS}hrs)"
+        value_col_plot = f'{value_column_base}_g_kg'
+        master_df[value_col_plot] = master_df[value_column_base].dropna() * 1000
+        unit_label = f"(g/kg per {window_hrs}hrs)"
         pos_color, neg_color = 'skyblue', 'salmon'
     elif variable_name == "Temperature":
         event_type_col = 'temp_event_type'
         pos_event_label, neg_event_label = 'Warming', 'Cooling'
-        value_col_plot = 'dT_dt_K'
-        master_df[value_col_plot] = master_df['dT_dt'].dropna()
-        unit_label = f"(K per {config_obj.CHANGE_WINDOW_HOURS}hrs)"
+        value_col_plot = f'{value_column_base}_K'
+        master_df[value_col_plot] = master_df[value_column_base].dropna()
+        unit_label = f"(K per {window_hrs}hrs)"
         pos_color, neg_color = 'sandybrown', 'lightsteelblue'
     else: return
 
@@ -144,7 +166,6 @@ def plot_histogram_event_magnitudes(master_df: pd.DataFrame, value_column_base: 
     event_df.dropna(subset=[value_col_plot], inplace=True)
 
     pos_magnitudes = event_df[event_df[event_type_col] == pos_event_label][value_col_plot]
-    # For release/cooling, magnitudes are negative, take absolute for histogram if desired, or plot raw
     neg_magnitudes_raw = event_df[event_df[event_type_col] == neg_event_label][value_col_plot]
     neg_magnitudes_abs = neg_magnitudes_raw.abs()
 
@@ -174,7 +195,7 @@ def plot_histogram_event_magnitudes(master_df: pd.DataFrame, value_column_base: 
         return
 
     plt.tight_layout()
-    plt.savefig(output_dir / f"histogram_{variable_name.lower()}_event_magnitudes.png", bbox_inches='tight', dpi=150)
+    plt.savefig(output_dir / f"histogram_{variable_name.lower()}_event_magnitudes_{value_column_base}.png", bbox_inches='tight', dpi=150)
     plt.close(fig); gc.collect()
 
 def plot_last_event_points(master_df: pd.DataFrame, relevant_ids: list,
@@ -314,11 +335,11 @@ def analyze_and_plot_release_in_target(master_df: pd.DataFrame, relevant_ids: li
     if master_df.empty or not relevant_ids: return
 
     if variable_name == "Moisture":
-        event_type_col, value_col, release_event_label = 'moisture_event_type', 'dq_dt', 'Release'
-        unit_plot = 'g/kg' # for total release; dq_dt is in kg/kg per X hrs
+        event_type_col, value_col, release_event_label = 'moisture_event_type', 'dq_dt_1hr', 'Release'
+        unit_plot = 'g/kg' # for total release
         multiplier = 1000 # kg/kg to g/kg
     elif variable_name == "Temperature":
-        event_type_col, value_col, release_event_label = 'temp_event_type', 'dT_dt', 'Cooling' # "Release" of heat is cooling
+        event_type_col, value_col, release_event_label = 'temp_event_type', 'dT_dt_1hr', 'Cooling' # "Release" of heat is cooling
         unit_plot = 'K'
         multiplier = 1 # K is K
     else: return
@@ -361,7 +382,7 @@ def analyze_and_plot_release_in_target(master_df: pd.DataFrame, relevant_ids: li
     # Plot the actual (negative) release values for moisture, or cooling values for temp
     ax1.hist(total_release_in_target.iloc[:,1], bins=25,
              color='maroon' if variable_name=="Moisture" else 'darkblue', edgecolor='black', alpha=0.7)
-    ax1.set_xlabel(f'Total {variable_name} Released in Target {unit_plot} (sum over {config_obj.CHANGE_WINDOW_HOURS}hr changes)', fontsize=DEFAULT_FONT_SIZE * FONT_SCALE)
+    ax1.set_xlabel(f'Total {variable_name} Released in Target {unit_plot} (sum of 1hr changes)', fontsize=DEFAULT_FONT_SIZE * FONT_SCALE)
     ax1.set_ylabel('Number of Particles', fontsize=DEFAULT_FONT_SIZE * FONT_SCALE)
     ax1.set_title(f'Distribution of Total {variable_name} Release in Target Region', fontsize=DEFAULT_FONT_SIZE * FONT_SCALE)
     ax1.grid(axis='y', linestyle=':', alpha=0.7)
@@ -670,23 +691,32 @@ def plot_vertical_profile_change_vs_mean_pressure(master_df: pd.DataFrame,
     print(f"Plotting: Vertical Profile of {variable_name} {time_window_hrs}hr-Change vs. {time_window_hrs}hr-Mean Pressure")
     if master_df.empty: return
 
-    # FIX: Handle column name changes based on time_window_hrs
-    if time_window_hrs == config_obj.CHANGE_WINDOW_HOURS:
+    # FIX: Handle column name changes based on time_window_hrs and DATA_INTERVAL_HOURS
+    if time_window_hrs == config_obj.DATA_INTERVAL_HOURS:
+        if variable_name == "Moisture":
+            change_col = 'dq_dt_input'
+            plot_value_col = f'dq_dt_g_kg_{time_window_hrs}hr'
+        else:
+            change_col = 'dT_dt_input'
+            plot_value_col = f'dT_dt_K_{time_window_hrs}hr'
+        mean_p_col = 'mean_pressure_input_window'
+    elif time_window_hrs == config_obj.CHANGE_WINDOW_HOURS:
         if variable_name == "Moisture":
             change_col = 'dq_dt'
             plot_value_col = 'dq_dt_g_kg'
         else:
             change_col = 'dT_dt'
             plot_value_col = 'dT_dt_K'
+        mean_p_col = 'mean_pressure_6hr_window'
     else:
+        # Fallback/legacy
         if variable_name == "Moisture":
             change_col = f'dq_dt_{time_window_hrs}hr'
             plot_value_col = f'dq_dt_g_kg_{time_window_hrs}hr'
         else:
             change_col = f'dT_dt_{time_window_hrs}hr'
             plot_value_col = f'dT_dt_K_{time_window_hrs}hr'
-
-    mean_p_col = f'mean_pressure_{time_window_hrs}hr_window'
+        mean_p_col = f'mean_pressure_{time_window_hrs}hr_window'
 
     if variable_name == "Moisture":
         master_df[plot_value_col] = master_df[change_col].dropna() * 1000
@@ -752,7 +782,14 @@ def plot_conditional_vertical_profiles_in_target(master_df: pd.DataFrame, variab
     if master_df.empty: return
 
     # FIX: Handle column name changes based on time_window_hrs
-    if time_window_hrs == config_obj.CHANGE_WINDOW_HOURS:
+    if time_window_hrs == config_obj.DATA_INTERVAL_HOURS:
+        if variable_name == "Moisture":
+            change_col = 'dq_dt_input'
+            plot_value_col = f'dq_dt_g_kg_{time_window_hrs}hr'
+        else:
+            change_col = 'dT_dt_input'
+            plot_value_col = f'dT_dt_K_{time_window_hrs}hr'
+    elif time_window_hrs == config_obj.CHANGE_WINDOW_HOURS:
         if variable_name == "Moisture":
             change_col = 'dq_dt'
             plot_value_col = 'dq_dt_g_kg'
@@ -768,14 +805,14 @@ def plot_conditional_vertical_profiles_in_target(master_df: pd.DataFrame, variab
             plot_value_col = f'dT_dt_K_{time_window_hrs}hr'
 
     if variable_name == "Moisture":
-        if plot_value_col not in master_df.columns: master_df[plot_value_col] = master_df[change_col].dropna() * 1000
+        if plot_value_col not in master_df.columns and change_col in master_df.columns: master_df[plot_value_col] = master_df[change_col].dropna() * 1000
         unit_label = f"(g/kg per {time_window_hrs}hrs)"
     elif variable_name == "Temperature":
-        if plot_value_col not in master_df.columns: master_df[plot_value_col] = master_df[change_col].dropna()
+        if plot_value_col not in master_df.columns and change_col in master_df.columns: master_df[plot_value_col] = master_df[change_col].dropna()
         unit_label = f"(K per {time_window_hrs}hrs)"
     else: return
     
-    dp_col = 'dp_dt_1hr'
+    dp_col = 'dp_dt_input'
     if dp_col not in master_df.columns or change_col not in master_df.columns:
         print(f"Required columns ('{dp_col}', '{change_col}') not in master_df. Skipping conditional profiles.")
         return
@@ -791,9 +828,9 @@ def plot_conditional_vertical_profiles_in_target(master_df: pd.DataFrame, variab
     in_target_df.dropna(subset=['pressure', plot_value_col, dp_col], inplace=True)
     if in_target_df.empty: print(f"No valid in-target data for conditional profiles of {variable_name}."); return
 
-    # dp_dt_1hr < 0 implies ascent (pressure decreasing)
-    # Define a small threshold for 'neutral' vertical motion to avoid noise
-    dp_threshold = 0.5 # hPa/hr, particles with |dp/dt| < threshold are 'neutral' vertically
+    # dp_dt_input < 0 implies ascent (pressure decreasing)
+    # Define a small threshold for 'neutral' vertical motion to avoid noise, scaled by interval
+    dp_threshold = 0.5 * config_obj.DATA_INTERVAL_HOURS # hPa per interval
     ascending_df = in_target_df[in_target_df[dp_col] < -dp_threshold]
     descending_df = in_target_df[in_target_df[dp_col] > dp_threshold]
     neutral_vert_df = in_target_df[in_target_df[dp_col].abs() <= dp_threshold]
@@ -808,10 +845,10 @@ def plot_conditional_vertical_profiles_in_target(master_df: pd.DataFrame, variab
     fig, ax = plt.subplots(figsize=(11, 10))
     plot_made = False
     if not ascending_df.empty and not np.all(np.isnan(avg_ascending)):
-        ax.plot(avg_ascending, bin_centers, 'g-^', label=f'Ascending (dp/dt < {-dp_threshold:.1f} hPa/hr)')
+        ax.plot(avg_ascending, bin_centers, 'g-^', label=f'Ascending (dp/dt < {-dp_threshold:.1f} hPa/{config_obj.DATA_INTERVAL_HOURS}hr)')
         plot_made = True
     if not descending_df.empty and not np.all(np.isnan(avg_descending)):
-        ax.plot(avg_descending, bin_centers, 'm-v', label=f'Descending (dp/dt > {dp_threshold:.1f} hPa/hr)')
+        ax.plot(avg_descending, bin_centers, 'm-v', label=f'Descending (dp/dt > {dp_threshold:.1f} hPa/{config_obj.DATA_INTERVAL_HOURS}hr)')
         plot_made = True
     if not neutral_vert_df.empty and not np.all(np.isnan(avg_neutral_vert)):
         ax.plot(avg_neutral_vert, bin_centers, 'k-o', label=f'Near-Neutral Vertical Motion', alpha=0.7)

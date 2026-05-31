@@ -11,19 +11,23 @@ from matplotlib.cm import ScalarMappable, get_cmap
 from pathlib import Path
 from tqdm import tqdm
 import gc
-import imageio
+import imageio # For creating animations (install with: pip install imageio imageio-ffmpeg)
 from multiprocessing import Pool
 
+# Import global configuration
 import config as cfg
 
+# Import frame generation functions from plotting modules
+# These must be defined in plotting_2d.py and plotting_3d.py respectively
 try:
-    import plotting_2d
+    import plotting_2d 
     from plotting_2d import generate_2d_snapshot_frame
     import plotting_3d
     from plotting_3d import generate_3d_snapshot_frame
 except ImportError as e:
     print(f"CRITICAL ERROR: Could not import frame generation functions from plotting modules: {e}")
     print("Ensure plotting_2d.py and plotting_3d.py exist and contain the necessary functions.")
+    # Define dummy functions to allow script to load, but animations will fail.
     def generate_2d_snapshot_frame(*args, **kwargs):
         print("Dummy generate_2d_snapshot_frame called. Plotting module likely missing.")
         return None

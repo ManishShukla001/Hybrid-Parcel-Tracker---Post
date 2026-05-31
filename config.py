@@ -21,19 +21,23 @@ from multiprocessing import Pool, cpu_count
 # 5: Start from tracks analysis (assumes master DataFrame parquet file exists).
 # 6: Start from plotting and visualization (assumes master DataFrame parquet file exists).
 # 7: Generate the tracks of the parcels which contibute moisture to the target area
-START_WORKFLOW_FROM_STAGE = 6
+START_WORKFLOW_FROM_STAGE = 1
 
 
 # --- I. Core Simulation & Data Paths ---
 # -----------------------------------------------------------------------------
+# The interval (in hours) at which the particle trajectory files are written/available.
+# Set to 1 for hourly files, 6 for 6-hourly files, etc.
+DATA_INTERVAL_HOURS = 1
+
 # Base output directory for ALL results from this comprehensive analysis
-BASE_OUTPUT_DIR = Path("./post_processing_results")
+BASE_OUTPUT_DIR = Path("./comprehensive_analysis_results")
 
 # Input: Directory containing particle CSVs with AT LEAST:
 # id, time_step (or means to derive it), latitude, longitude, pressure, specific_humidity, temperature
-# These are assumed to be the files generated with the analysis of q and t from ERA5 data.
+# These are assumed to be the files generated after adding q and t from ERA5 data.
 #AUGMENTED_PARTICLE_DATA_DIR = Path("./particle_output_with_q_t")
-AUGMENTED_PARTICLE_DATA_DIR = Path("./output")
+AUGMENTED_PARTICLE_DATA_DIR = Path("./hybrid_particle_output")
 # Optional: Path to the original raw partcel simulation output (before q/t augmentation)
 # This might be used by some adapted Tracks21.py logic if needed.
 #ORIGINAL_PARTICLE_SIM_DIR = Path("./particle_simulation_output")
@@ -46,18 +50,23 @@ ORIGINAL_PARTICLE_SIM_DIR = AUGMENTED_PARTICLE_DATA_DIR
 # that passed through a target region during a specific period.
 
 # Date and time corresponding to the simulation's time_step = 0
-SIMULATION_START_DATETIME = pd.Timestamp('2023-12-15 00:00:00')
+SIMULATION_START_DATETIME = pd.Timestamp('2023-12-08 00:00:00')
 
 # Target region definition for selecting relevant particles
 TARGET_LAT_CENTER = 8.5683
 TARGET_LON_CENTER = 78.1238
 # Half-width of the target box in degrees (e.g., 0.09 means a 0.18x0.18 degree box)
-TARGET_BOX_HALF_WIDTH_DEG = 0.18 #0.135
+TARGET_BOX_HALF_WIDTH_DEG = 0.18 
 
-# Time steps (hours from SIMULATION_START_DATETIME) during which particles
-# arriving in the target box are considered "relevant" for further analysis.
-# Example: range(48, 96) includes hours 48 through 95.
-RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS = range(66, 102)
+# Target arrival period (datetimes corresponding to when particles arrive in the target box)
+RELEVANT_PARTICLE_TARGET_ARRIVAL_START = pd.Timestamp('2023-12-17 18:00:00')
+RELEVANT_PARTICLE_TARGET_ARRIVAL_END = pd.Timestamp('2023-12-19 06:00:00')
+
+# Calculated step range for target arrival hours (based on simulation start datetime)
+RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS = range(
+    int((RELEVANT_PARTICLE_TARGET_ARRIVAL_START - SIMULATION_START_DATETIME).total_seconds() / 3600),
+    int((RELEVANT_PARTICLE_TARGET_ARRIVAL_END - SIMULATION_START_DATETIME).total_seconds() / 3600)
+)
 
 # --- III. Detailed Analysis Configuration ---
 # -----------------------------------------------------------------------------
@@ -71,15 +80,20 @@ RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS = range(66, 102)
 ANALYSIS_START_HOUR = 0 # Default: trace from the very beginning (time_step 0)
 # Example: To start tracing history from simulation hour 10 onwards: ANALYSIS_START_HOUR = 10
 
-# Core period of the "event" for which specific phenomena are analyzed
-# (e.g., moisture release *within* the target *during* these hours).
-# This can be the same as RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS or a sub-period.
-EVENT_CORE_ANALYSIS_STEPS = range(66, 102) # e.g., analyze release in target from H48-H95
+# Core period of the event (datetimes for event core analysis)
+EVENT_CORE_ANALYSIS_START = pd.Timestamp('2023-12-17 18:00:00')
+EVENT_CORE_ANALYSIS_END = pd.Timestamp('2023-12-19 06:00:00')
+
+# Calculated step range for event core analysis hours (based on simulation start datetime)
+EVENT_CORE_ANALYSIS_STEPS = range(
+    int((EVENT_CORE_ANALYSIS_START - SIMULATION_START_DATETIME).total_seconds() / 3600),
+    int((EVENT_CORE_ANALYSIS_END - SIMULATION_START_DATETIME).total_seconds() / 3600)
+)
 
 # How many hours *after* the LATEST relevant arrival step (from RELEVANT_PARTICLE_TARGET_ARRIVAL_STEPS)
 # should the histories of relevant particles be extracted and analyzed?
 # This allows looking at what happens to particles *after* passing the target.
-TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS = 24
+TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS = 48
 
 # Thresholds for defining significant changes
 # Specific humidity change (in kg/kg) over CHANGE_WINDOW_HOURS
@@ -97,13 +111,13 @@ CHANGE_WINDOW_HOURS = 6
 # Otherwise, provide (lon_min, lon_max, lat_min, lat_max) for 2D.
 # Example: FIXED_PLOT_EXTENT_2D = (60, 100, 0, 30)
 #FIXED_PLOT_EXTENT_2D = None
-FIXED_PLOT_EXTENT_2D = (70, 110, -5, 30)
+FIXED_PLOT_EXTENT_2D = (0, 150, -10, 50)#(-150, -20, -30, 80) #(70, 110, -5, 30)
 # For 3D plots, the lon/lat component of the extent.
 #FIXED_PLOT_LONLAT_EXTENT_3D = None # e.g., (60, 100, 0, 30)
-FIXED_PLOT_LONLAT_EXTENT_3D = (60, 105, -5, 30)
+FIXED_PLOT_LONLAT_EXTENT_3D = (0, 150, -10, 50) #(-150, -20, -30, 80) #(60, 105, -5, 30)
 # For 3D plots, the pressure component (p_min_hPa, p_max_hPa).
 #FIXED_PLOT_PRESSURE_EXTENT_3D = None # e.g., (200, 1000)
-FIXED_PLOT_PRESSURE_EXTENT_3D = (200,1000)
+FIXED_PLOT_PRESSURE_EXTENT_3D = (100,1000)
 DEFAULT_PLOT_VIEW_ANGLE_3D = (25, -70) # (elevation, azimuth) for 3D plots
 # Default buffer (in degrees) for dynamic extent calculation if fixed extent is None
 DEFAULT_PLOT_BUFFER_DEG = 5.0
@@ -123,8 +137,8 @@ TRACKS_PLOT_EXTENT_2D=FIXED_PLOT_EXTENT_2D
 # These define the range of simulation hours to generate animation frames for.
 # By default, they are set to the core event window.
 # To create a longer or different animation, uncomment and edit the two lines below.
-ANIMATION_START_HOUR = 48
-ANIMATION_END_HOUR = 120
+ANIMATION_START_HOUR = 0#48
+ANIMATION_END_HOUR = 312#120
 ANIMATION_FRAME_START_HOUR = min(EVENT_CORE_ANALYSIS_STEPS)
 ANIMATION_FRAME_END_HOUR = max(EVENT_CORE_ANALYSIS_STEPS) # Inclusive end for frames
 
@@ -136,7 +150,7 @@ ANIMATION_FPS = 2
 ANIMATION_DPI = 100 # DPI for individual animation frames
 
 # Max number of individual particle trajectories to plot for detailed static plots (None for all)
-MAX_INDIVIDUAL_TRAJECTORIES_TO_PLOT = 10
+MAX_INDIVIDUAL_TRAJECTORIES_TO_PLOT = 1000
 
 # Time Evolution Plots
 # **Requirement 8: Time Evolution Plot Steps**
@@ -145,7 +159,7 @@ MAX_INDIVIDUAL_TRAJECTORIES_TO_PLOT = 10
 # Creates plots every 6 hours within the core event.
 _event_start = min(EVENT_CORE_ANALYSIS_STEPS)
 _event_end = max(EVENT_CORE_ANALYSIS_STEPS)
-TIME_EVOLUTION_FOCUS_STEPS = list(range(_event_start, _event_end + 1, 1))
+TIME_EVOLUTION_FOCUS_STEPS = list(range(_event_start, _event_end + 1, DATA_INTERVAL_HOURS))
 # Example: If EVENT_CORE_ANALYSIS_STEPS is range(48,96), this becomes [48, 54, ..., 90]
 
 # Grid resolution for 2D aggregate heatmap plots (degrees)
@@ -178,7 +192,7 @@ VERTICAL_PROFILE_PRESSURE_BINS = np.arange(100, 1001, 50) # hPa
 # -----------------------------------------------------------------------------
 # Number of worker processes to use for parallelizable tasks.
 # Using slightly less than total CPUs can leave resources for system.
-NUM_WORKERS = 5 #max(1, cpu_count() - 1 if cpu_count() and cpu_count() > 1 else 1)
+NUM_WORKERS = 50 #max(1, cpu_count() - 1 if cpu_count() and cpu_count() > 1 else 1)
 #NUM_WORKERS = 20
 
 # --- VI. Output File Naming Conventions (Optional, for consistency) ---

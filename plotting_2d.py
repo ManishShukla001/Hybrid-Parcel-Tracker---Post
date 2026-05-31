@@ -1,12 +1,18 @@
 # plotting_2d.py
 """
 Module for generating 2D static plots and 2D animation frames.
+Includes:
+- Aggregate maps (frequency, net change) for moisture and temperature.
+- Composite trajectory density plots.
+- Individual 2D trajectory plots.
+- 2D snapshot frames for animation.
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+#from matplotlib.colors import Normalize
 from matplotlib.colors import Normalize, BoundaryNorm
 from matplotlib.cm import ScalarMappable, get_cmap
 import cartopy.crs as ccrs
@@ -15,12 +21,14 @@ from pathlib import Path
 from tqdm import tqdm
 import gc
 from scipy.stats import binned_statistic_2d
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
+# Import global configuration
 import config as cfg
 
+# Define a font scaling factor
 FONT_SCALE = 2
-DEFAULT_FONT_SIZE = 10
+DEFAULT_FONT_SIZE = 10 # A reasonable base font size
 
 def _add_map_features_2d(ax, include_labels=True):
     """Helper to add standard map features to a 2D Cartopy ax."""
@@ -321,9 +329,12 @@ def _plot_individual_2d_trajectory_detailed_worker(args):
     )
     ax.set_extent([plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max], crs=ccrs.PlateCarree())
 
-    points = np.array([particle_df['longitude'], particle_df['latitude']]).T.reshape(-1, 1, 2)
+    valid_coords = particle_df.dropna(subset=['longitude', 'latitude', 'pressure'])
+    if len(valid_coords) < 2:
+        return
+    points = np.array([valid_coords['longitude'], valid_coords['latitude']]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    pressures_for_segments = particle_df['pressure'].iloc[:-1].values
+    pressures_for_segments = valid_coords['pressure'].iloc[:-1].values
     
     cmap_pressure_obj = get_cmap(cmap_pressure_name)
     # Ensure BoundaryNorm is imported at the top of the file

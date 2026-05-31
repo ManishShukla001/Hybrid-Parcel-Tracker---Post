@@ -1,3 +1,4 @@
+# data_processing.py
 """
 Module for processing particle trajectory data:
 1. Identifying relevant particles.
@@ -13,9 +14,10 @@ import gc
 from multiprocessing import Pool
 from datetime import datetime, timedelta
 
-import config as cfg
+import config as cfg # Import global configuration
 import xarray as xr
 
+# Global flags to ensure "file type imported" message is printed only once per type
 _first_nc_read_logged = False
 _first_csv_read_logged = False
 
@@ -69,7 +71,8 @@ def identify_target_particles_from_augmented_data(augmented_data_dir: Path,
     lon_min = target_lon_center - target_box_half_width_deg
     lon_max = target_lon_center + target_box_half_width_deg
 
-    for target_step in tqdm(event_steps, desc="Scanning event steps for target particles"):
+    valid_steps = [step for step in event_steps if step % cfg.DATA_INTERVAL_HOURS == 0]
+    for target_step in tqdm(valid_steps, desc="Scanning event steps for target particles"):
         df_target_hour = None
         nc_file_path = get_particle_filename_by_date(augmented_data_dir, cfg.SIMULATION_START_DATETIME, target_step)
         csv_file_path = augmented_data_dir / f"particles_output_{target_step:04d}.csv"
@@ -145,9 +148,9 @@ def extract_particle_histories(relevant_ids: list,
 
     global _first_nc_read_logged, _first_csv_read_logged
 
-    print(f"Extracting histories from hour {start_analysis_hour} to {max_history_hour}.")
+    print(f"Extracting histories from hour {start_analysis_hour} to {max_history_hour} (interval: {cfg.DATA_INTERVAL_HOURS} hours).")
 
-    for hour in tqdm(range(start_analysis_hour, max_history_hour + 1), desc="Filtering hourly files for histories"):
+    for hour in tqdm(range(start_analysis_hour, max_history_hour + 1, cfg.DATA_INTERVAL_HOURS), desc="Filtering hourly files for histories"):
         df_hour = None
         original_nc_file_path = get_particle_filename_by_date(augmented_data_dir, cfg.SIMULATION_START_DATETIME, hour)
         original_csv_file_path = augmented_data_dir / f"particles_output_{hour:04d}.csv" # Fallback path
@@ -206,7 +209,7 @@ def _analyze_single_particle_history_worker(args_tuple):
 
     particle_history_frames = []
     try:
-        for hour in range(cfg.ANALYSIS_START_HOUR, max_history_hour + 1):
+        for hour in range(cfg.ANALYSIS_START_HOUR, max_history_hour + 1, cfg.DATA_INTERVAL_HOURS):
             filtered_file_path = filtered_input_dir / f"filtered_particles_hour_{hour:04d}.parquet"
             if filtered_file_path.exists():
                 df_hour_all_particles = pd.read_parquet(filtered_file_path)
@@ -223,23 +226,57 @@ def _analyze_single_particle_history_worker(args_tuple):
     df_particle = pd.concat(particle_history_frames).sort_values(by='time_step').reset_index(drop=True)
     df_particle = df_particle.drop_duplicates(subset=['particle_id', 'time_step'], keep='first')
 
+    # --- ROBUSTNESS FIX: Reindex to full time range to handle gaps ---
+    # Ensure we have a row for every hour so shift() works on time, not just row position
+    if not df_particle.empty:
+        min_t, max_t = int(df_particle['time_step'].min()), int(df_particle['time_step'].max())
+        full_time_grid = np.arange(min_t, max_t + 1, cfg.DATA_INTERVAL_HOURS)
+        
+        # Preserve particle_id for gap filling
+        pid_val = df_particle['particle_id'].iloc[0]
+        
+        df_particle = df_particle.set_index('time_step').reindex(full_time_grid)
+        df_particle.index.name = 'time_step'
+        df_particle.reset_index(inplace=True)
+        
+        # Fill particle_id for the newly created gap rows
+        df_particle['particle_id'] = pid_val
+    # ------------------------------------------------------------------
+
+    # Determine steps for change window
+    change_window_steps = change_window // cfg.DATA_INTERVAL_HOURS if change_window % cfg.DATA_INTERVAL_HOURS == 0 else None
+
     # --- Moisture Change Analysis ---
     if 'specific_humidity' in df_particle.columns:
         df_particle['specific_humidity'] = pd.to_numeric(df_particle['specific_humidity'], errors='coerce')
         
-        # Use a clear, single name for the change calculated over the configured window.
-        df_particle['q_lagged'] = df_particle['specific_humidity'].shift(change_window)
-        df_particle['dq_dt'] = df_particle['specific_humidity'] - df_particle['q_lagged']
-
-        df_particle['moisture_event_type'] = 'Neutral'
-        df_particle.loc[df_particle['dq_dt'] >= dq_threshold, 'moisture_event_type'] = 'Uptake'
-        df_particle.loc[df_particle['dq_dt'] <= -dq_threshold, 'moisture_event_type'] = 'Release'
+        # Change calculated over the input interval window (shift of 1 row)
+        df_particle['q_lagged_input'] = df_particle['specific_humidity'].shift(1)
+        df_particle['dq_dt_input'] = df_particle['specific_humidity'] - df_particle['q_lagged_input']
         
-        # 1-hourly change
-        df_particle['q_lagged_1hr'] = df_particle['specific_humidity'].shift(1)
-        df_particle['dq_dt_1hr'] = df_particle['specific_humidity'] - df_particle['q_lagged_1hr']
+        # Use a clear, single name for the change calculated over the configured CHANGE_WINDOW_HOURS.
+        if change_window_steps is not None:
+            df_particle['q_lagged'] = df_particle['specific_humidity'].shift(change_window_steps)
+            df_particle['dq_dt'] = df_particle['specific_humidity'] - df_particle['q_lagged']
+            
+            df_particle['moisture_event_type'] = 'Neutral'
+            df_particle.loc[df_particle['dq_dt'] >= dq_threshold, 'moisture_event_type'] = 'Uptake'
+            df_particle.loc[df_particle['dq_dt'] <= -dq_threshold, 'moisture_event_type'] = 'Release'
+        else:
+            df_particle['q_lagged'] = np.nan
+            df_particle['dq_dt'] = np.nan
+            df_particle['moisture_event_type'] = 'Unknown'
+
+        # Legacy 1-hourly change compatibility
+        if cfg.DATA_INTERVAL_HOURS == 1:
+            df_particle['q_lagged_1hr'] = df_particle['q_lagged_input']
+            df_particle['dq_dt_1hr'] = df_particle['dq_dt_input']
+        else:
+            df_particle['q_lagged_1hr'] = np.nan
+            df_particle['dq_dt_1hr'] = np.nan
     else:
-        # Ensure all columns exist even if specific_humidity is missing
+        df_particle['q_lagged_input'] = np.nan
+        df_particle['dq_dt_input'] = np.nan
         df_particle['q_lagged'] = np.nan
         df_particle['dq_dt'] = np.nan
         df_particle['moisture_event_type'] = 'Unknown'
@@ -250,18 +287,32 @@ def _analyze_single_particle_history_worker(args_tuple):
     if 'temperature' in df_particle.columns:
         df_particle['temperature'] = pd.to_numeric(df_particle['temperature'], errors='coerce')
 
-        df_particle['T_lagged'] = df_particle['temperature'].shift(change_window)
-        df_particle['dT_dt'] = df_particle['temperature'] - df_particle['T_lagged']
+        # Change calculated over the input interval window (shift of 1 row)
+        df_particle['T_lagged_input'] = df_particle['temperature'].shift(1)
+        df_particle['dT_dt_input'] = df_particle['temperature'] - df_particle['T_lagged_input']
 
-        df_particle['temp_event_type'] = 'Neutral'
-        df_particle.loc[df_particle['dT_dt'] >= dt_threshold, 'temp_event_type'] = 'Warming'
-        df_particle.loc[df_particle['dT_dt'] <= -dt_threshold, 'temp_event_type'] = 'Cooling'
+        if change_window_steps is not None:
+            df_particle['T_lagged'] = df_particle['temperature'].shift(change_window_steps)
+            df_particle['dT_dt'] = df_particle['temperature'] - df_particle['T_lagged']
 
-        # 1-hourly change
-        df_particle['T_lagged_1hr'] = df_particle['temperature'].shift(1)
-        df_particle['dT_dt_1hr'] = df_particle['temperature'] - df_particle['T_lagged_1hr']
+            df_particle['temp_event_type'] = 'Neutral'
+            df_particle.loc[df_particle['dT_dt'] >= dt_threshold, 'temp_event_type'] = 'Warming'
+            df_particle.loc[df_particle['dT_dt'] <= -dt_threshold, 'temp_event_type'] = 'Cooling'
+        else:
+            df_particle['T_lagged'] = np.nan
+            df_particle['dT_dt'] = np.nan
+            df_particle['temp_event_type'] = 'Unknown'
+
+        # Legacy 1-hourly change compatibility
+        if cfg.DATA_INTERVAL_HOURS == 1:
+            df_particle['T_lagged_1hr'] = df_particle['T_lagged_input']
+            df_particle['dT_dt_1hr'] = df_particle['dT_dt_input']
+        else:
+            df_particle['T_lagged_1hr'] = np.nan
+            df_particle['dT_dt_1hr'] = np.nan
     else:
-        # Ensure all columns exist even if temperature is missing
+        df_particle['T_lagged_input'] = np.nan
+        df_particle['dT_dt_input'] = np.nan
         df_particle['T_lagged'] = np.nan
         df_particle['dT_dt'] = np.nan
         df_particle['temp_event_type'] = 'Unknown'
@@ -272,19 +323,37 @@ def _analyze_single_particle_history_worker(args_tuple):
     if 'pressure' in df_particle.columns:
         df_particle['pressure'] = pd.to_numeric(df_particle['pressure'], errors='coerce')
         
-        # For 6-hour window mean pressure
-        df_particle['p_lagged_6hr'] = df_particle['pressure'].shift(change_window)
-        df_particle['mean_pressure_6hr_window'] = (df_particle['pressure'] + df_particle['p_lagged_6hr']) / 2
+        # Change calculated over the input interval window (shift of 1 row)
+        df_particle['p_lagged_input'] = df_particle['pressure'].shift(1)
+        df_particle['dp_dt_input'] = df_particle['pressure'] - df_particle['p_lagged_input']
+        df_particle['mean_pressure_input_window'] = (df_particle['pressure'] + df_particle['p_lagged_input']) / 2
         
-        # For 1-hour window mean pressure
-        df_particle['p_lagged_1hr'] = df_particle['pressure'].shift(1)
-        df_particle['mean_pressure_1hr_window'] = (df_particle['pressure'] + df_particle['p_lagged_1hr']) / 2
-        
-        # For dp_dt_1hr (proxy for vertical motion: negative means ascent)
-        df_particle['dp_dt_1hr'] = df_particle['pressure'] - df_particle['p_lagged_1hr']
+        # For 6-hour window mean pressure and vertical motion proxy
+        if change_window_steps is not None:
+            df_particle['p_lagged_6hr'] = df_particle['pressure'].shift(change_window_steps)
+            df_particle['mean_pressure_6hr_window'] = (df_particle['pressure'] + df_particle['p_lagged_6hr']) / 2
+            df_particle['dp_dt_6hr'] = df_particle['pressure'] - df_particle['p_lagged_6hr']
+        else:
+            df_particle['p_lagged_6hr'] = np.nan
+            df_particle['mean_pressure_6hr_window'] = np.nan
+            df_particle['dp_dt_6hr'] = np.nan
+
+        # Legacy 1-hourly change compatibility
+        if cfg.DATA_INTERVAL_HOURS == 1:
+            df_particle['p_lagged_1hr'] = df_particle['p_lagged_input']
+            df_particle['mean_pressure_1hr_window'] = df_particle['mean_pressure_input_window']
+            df_particle['dp_dt_1hr'] = df_particle['dp_dt_input']
+        else:
+            df_particle['p_lagged_1hr'] = np.nan
+            df_particle['mean_pressure_1hr_window'] = np.nan
+            df_particle['dp_dt_1hr'] = np.nan
     else:
+        df_particle['p_lagged_input'] = np.nan
+        df_particle['dp_dt_input'] = np.nan
+        df_particle['mean_pressure_input_window'] = np.nan
         df_particle['p_lagged_6hr'] = np.nan
         df_particle['mean_pressure_6hr_window'] = np.nan
+        df_particle['dp_dt_6hr'] = np.nan
         df_particle['p_lagged_1hr'] = np.nan
         df_particle['mean_pressure_1hr_window'] = np.nan
         df_particle['dp_dt_1hr'] = np.nan

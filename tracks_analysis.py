@@ -313,7 +313,7 @@ def run_tracks_analysis_from_master(master_df_main: pd.DataFrame, config_obj):
             config_obj.TRACK_HISTORY_WINDOW_AFTER_MAX_ARRIVAL_HOURS # Pass new arg
         ))
 
-    if config_obj.NUM_WORKERS > 1 and len(tasks) > 1 and len(master_df_main) < 5000000 :
+    if config_obj.NUM_WORKERS > 1 and len(tasks) > 1:
         print(f"Starting tracks analysis pool with {min(config_obj.NUM_WORKERS, len(tasks))} workers...")
         with Pool(processes=min(config_obj.NUM_WORKERS, len(tasks))) as pool:
             results = list(tqdm(pool.starmap(process_track_step_from_master, tasks), total=len(tasks), desc="Processing track steps (from master)"))

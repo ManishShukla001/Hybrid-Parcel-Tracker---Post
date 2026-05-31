@@ -153,14 +153,13 @@ def generate_3d_snapshot_frame(
     ax.set_ylim(fixed_lims_3d_for_anim['lat'])
     ax.set_zlim(fixed_lims_3d_for_anim['pres'][1], fixed_lims_3d_for_anim['pres'][0]) # (max_p, min_p)
     
-    # Set custom ticks
-    ax.set_xticks([60, 70, 80, 90, 100])
-    ax.set_yticks([-5, 5, 15, 25])
-    ax.set_zticks([200, 400, 600, 800, 1000])
+    # Remove hardcoded ticks to allow dynamic generation based on extent
+    # ax.set_xticks([60, 70, 80, 90, 100])
+    # ax.set_yticks([-5, 5, 15, 25])
+    # ax.set_zticks([200, 400, 600, 800, 1000])
 
-    #floor_pressure = fixed_lims_3d_for_anim['pres'][1] # Max pressure value is the floor
-    floor_pressure = 1000  # Always use 1000 hPa as floor
-    ceiling_pressure = 200  # Always use 200 hPa as ceiling
+    floor_pressure = fixed_lims_3d_for_anim['pres'][1] # Max pressure value is the floor
+    ceiling_pressure = fixed_lims_3d_for_anim['pres'][0]  # Min pressure value is the ceiling
     
     # --- Floor Rectangle for the plot domain ---
     x_rect = [fixed_lims_3d_for_anim['lon'][0], fixed_lims_3d_for_anim['lon'][1], 
@@ -285,18 +284,18 @@ def _plot_one_static_3d_traj(particle_id: int, particle_df: pd.DataFrame,
     ax.set_xlim(lims['lon'])
     ax.set_ylim(lims['lat'])
     #ax.set_zlim(lims['pres'][1], lims['pres'][0]) # max_p, min_p for inverted axis
-    floor_pressure = 1000  # Always use 1000 hPa as floor
-    ceiling_pressure = 200  # Always use 200 hPa as ceiling
+    floor_pressure = lims['pres'][1]
+    ceiling_pressure = lims['pres'][0]
 
     ax.set_zlim(floor_pressure, ceiling_pressure)  # (max_p, min_p) for inverted axis
     
-    # Set custom ticks
-    ax.set_xticks([60, 70, 80, 90, 100])
-    ax.set_yticks([-5, 5, 15, 25])
+    # Remove hardcoded ticks
+    # ax.set_xticks([60, 70, 80, 90, 100])
+    # ax.set_yticks([-5, 5, 15, 25])
     #pressure_ticks = [200, 300, 400, 500, 600, 700, 800, 900, 1000]
-    pressure_ticks = [200, 400, 600, 800, 1000]
-    ax.set_zticks(pressure_ticks)
-    ax.set_zticklabels(pressure_ticks)
+    #pressure_ticks = [200, 400, 600, 800, 1000]
+    #ax.set_zticks(pressure_ticks)
+    #ax.set_zticklabels(pressure_ticks)
     #floor_pressure = lims['pres'][1]
 
     # --- Floor Rectangle ---
