@@ -199,8 +199,15 @@ def plot_net_moisture_flux(master_df, particle_ids, output_dir, config_obj):
     event_df['amount'] = event_df['dq_dt_input'] * 1000 
 
     grid_res = config_obj.AGGREGATE_MAP_GRID_RESOLUTION_DEG
-    lon_extent = config_obj.FIXED_PLOT_EXTENT_2D[:2]
-    lat_extent = config_obj.FIXED_PLOT_EXTENT_2D[2:]
+    if config_obj.FIXED_PLOT_EXTENT_2D:
+        lon_extent = config_obj.FIXED_PLOT_EXTENT_2D[:2]
+        lat_extent = config_obj.FIXED_PLOT_EXTENT_2D[2:]
+    else:
+        lon_min, lon_max = event_df['longitude'].min(), event_df['longitude'].max()
+        lat_min, lat_max = event_df['latitude'].min(), event_df['latitude'].max()
+        buffer = config_obj.DEFAULT_PLOT_BUFFER_DEG
+        lon_extent = (max(-180, lon_min - buffer), min(180, lon_max + buffer))
+        lat_extent = (max(-90, lat_min - buffer), min(90, lat_max + buffer))
 
     net_flux_grid, lon_bins, lat_bins = _aggregate_events_on_grid(event_df, 'amount', grid_res, lon_extent, lat_extent)
 
@@ -250,10 +257,15 @@ def plot_moisture_contribution_grid(master_df, particle_ids, output_dir, config_
 
     # 3. Define grid parameters
     grid_res = 0.2  # Grid size set to 0.2 as per user request.
-    # TODO: The longitude range is hardcoded as per user request for clustering plot.
-    # This should be moved to the config file in the future.
-    lon_extent = (50, 110)
-    lat_extent = config_obj.FIXED_PLOT_EXTENT_2D[2:]
+    if config_obj.FIXED_PLOT_EXTENT_2D:
+        lon_extent = config_obj.FIXED_PLOT_EXTENT_2D[:2]
+        lat_extent = config_obj.FIXED_PLOT_EXTENT_2D[2:]
+    else:
+        lon_min, lon_max = release_events_df['longitude'].min(), release_events_df['longitude'].max()
+        lat_min, lat_max = release_events_df['latitude'].min(), release_events_df['latitude'].max()
+        buffer = config_obj.DEFAULT_PLOT_BUFFER_DEG
+        lon_extent = (max(-180, lon_min - buffer), min(180, lon_max + buffer))
+        lat_extent = (max(-90, lat_min - buffer), min(90, lat_max + buffer))
     plot_extent = (lon_extent[0], lon_extent[1], lat_extent[0], lat_extent[1])
 
     # 4. Aggregate the moisture contribution onto the grid
