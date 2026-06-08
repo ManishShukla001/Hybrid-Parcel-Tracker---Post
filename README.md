@@ -204,7 +204,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Citation
-
+Shukla, M., Ganapathiraju, S. A., Pérez-Alarcón, A., & Rathinasamy, M. (2026). Hybrid Parcel Tracker (HPT) – A Python-based framework to analyse moisture movement during extreme precipitation events. Atmospheric Research, 109136. https://doi.org/10.1016/j.atmosres.2026.109136
 
 ## Support
 
